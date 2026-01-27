@@ -55,4 +55,6 @@ const startServer = async () => {
   }
 };
 
-startServer().then(r => console.log(r)).catch(e => console.log(e));
+startServer()
+  .then((r) => console.log(r))
+  .catch((e) => console.log(e));

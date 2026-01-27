@@ -4,7 +4,7 @@ import { verifyToken } from '@/utils/jwt';
 import { asyncHandler } from './asyncHandler';
 
 export const authenticate = asyncHandler(
-  async (req: Request, _res: Response, next: NextFunction) => {
+  async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -17,18 +17,14 @@ export const authenticate = asyncHandler(
       throw new AppError('Authentication required. Please provide a valid token.', 401);
     }
 
-    try {
-      const decoded = verifyToken(token);
+    const decoded = await Promise.resolve(verifyToken(token));
 
-      req.user = {
-        id: decoded.userId,
-        email: decoded.email,
-        role: decoded.role,
-      };
+    req.user = {
+      id: decoded.userId,
+      email: decoded.email,
+      role: decoded.role,
+    };
 
-      next();
-    } catch (error) {
-      throw new AppError('Invalid or expired token. Please login again.', 401);
-    }
+    next();
   }
 );

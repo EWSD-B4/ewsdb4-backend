@@ -38,8 +38,9 @@
       "@/types/*": ["src/types/*"],
       "@/routes": ["src/routes/index.ts"],
       "@/routes/*": ["src/routes/*"]
-    }
+    },
+    "typeRoots": ["./node_modules/@types", "./src/types"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/types/**/*.d.ts"],
   "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"]
 }
