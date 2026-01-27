@@ -18,7 +18,7 @@ class UserController {
   });
 
   getUserById = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const user = await userService.getUserById(id);
 
     const response: ApiResponse<User> = {
@@ -43,7 +43,7 @@ class UserController {
   });
 
   updateUser = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const user = await userService.updateUser(id, req.body);
 
     const response: ApiResponse<User> = {
@@ -56,7 +56,7 @@ class UserController {
   });
 
   deleteUser = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     await userService.deleteUser(id);
 
     const response: ApiResponse = {

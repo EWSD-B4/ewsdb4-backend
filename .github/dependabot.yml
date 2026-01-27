@@ -12,9 +12,6 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
-    labels:
-      - "dependencies"
-      - "automated"
     # Group updates for better PR management
     groups:
       # Group all minor and patch updates together
@@ -43,10 +40,6 @@ updates:
       timezone: "Asia/Yangon"
     commit-message:
       prefix: "chore(ci)"
-    labels:
-      - "ci"
-      - "dependencies"
-      - "automated"
 
   # Enable version updates for Docker
   - package-ecosystem: "docker"
@@ -58,7 +51,3 @@ updates:
       timezone: "Asia/Yangon"
     commit-message:
       prefix: "chore(docker)"
-    labels:
-      - "docker"
-      - "dependencies"
-      - "automated"
