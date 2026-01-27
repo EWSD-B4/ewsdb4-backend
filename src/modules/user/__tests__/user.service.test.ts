@@ -25,7 +25,12 @@ describe('UserService', () => {
 
       const result = await userService.getUserById('1');
 
-      expect(result).toEqual(mockUser);
+      // Dates are serialized as strings when cached
+      expect(result).toEqual({
+        ...mockUser,
+        createdAt: mockUser.createdAt.toISOString(),
+        updatedAt: mockUser.updatedAt.toISOString(),
+      });
       expect(cache.get).toHaveBeenCalledWith('user:1');
       expect(userRepository.findById).not.toHaveBeenCalled();
     });
