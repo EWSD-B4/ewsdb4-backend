@@ -17,7 +17,7 @@ export const authenticate = asyncHandler(
       throw new AppError('Authentication required. Please provide a valid token.', 401);
     }
 
-    const decoded = await Promise.resolve(verifyToken(token));
+    const decoded = verifyToken(token);
 
     req.user = {
       id: decoded.userId,
