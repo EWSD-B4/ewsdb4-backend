@@ -4,7 +4,8 @@ import { verifyToken } from '@/utils/jwt';
 import { asyncHandler } from './asyncHandler';
 
 export const authenticate = asyncHandler(
-  async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async (req: Request, _res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
