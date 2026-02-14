@@ -4,7 +4,7 @@ import documentService from '@/modules/document/document.service';
 import { DocumentStatus } from '@/modules/document/document.types';
 import logger from '@/shared/logger';
 import mammoth from 'mammoth';
-import {Try} from '@/shared/utils/Try';
+import { Try } from '@/shared/utils/Try';
 
 class DocumentProcessor {
   async start(): Promise<void> {
@@ -47,13 +47,15 @@ class DocumentProcessor {
 
       await documentService.updateDocumentStatus(documentId, DocumentStatus.COMPLETED);
       logger.info(`Document processed successfully: ${documentId}`);
-    }).onFailure(async (error: Error) => {
-      await documentService.updateDocumentStatus(
-        documentId,
-        DocumentStatus.FAILED,
-        error.message || 'Unknown error'
-      );
-    }).orElseLogWarning(`Error processing document ${documentId}`);
+    })
+      .onFailure(async (error: Error) => {
+        await documentService.updateDocumentStatus(
+          documentId,
+          DocumentStatus.FAILED,
+          error.message || 'Unknown error'
+        );
+      })
+      .orElseLogWarning(`Error processing document ${documentId}`);
   }
 
   private async processHtmlDocument(_buffer: Buffer, documentId: string): Promise<void> {
@@ -68,13 +70,12 @@ class DocumentProcessor {
 
   private async processWordDocument(buffer: Buffer, documentId: string): Promise<void> {
     logger.info(`Processing Word document: ${documentId}`);
-    
+
     return Try.execute(async () => {
-       
       const result = await mammoth.convertToHtml({ buffer });
-       
+
       const html: string = result.value;
-       
+
       const messages: unknown[] = result.messages;
 
       if (messages.length > 0) {
@@ -82,12 +83,10 @@ class DocumentProcessor {
       }
 
       const htmlKey = `converted/${documentId}.html`;
-      await s3Service.uploadFile(
-        htmlKey,
-        Buffer.from(html, 'utf-8'),
-        'text/html',
-        { documentId, convertedFrom: 'docx' }
-      );
+      await s3Service.uploadFile(htmlKey, Buffer.from(html, 'utf-8'), 'text/html', {
+        documentId,
+        convertedFrom: 'docx',
+      });
 
       const jsonData = {
         documentId,
@@ -106,7 +105,9 @@ class DocumentProcessor {
 
       await documentService.updateConvertedFiles(documentId, htmlKey, jsonKey);
 
-      logger.info(`Word document converted successfully: ${documentId} (HTML: ${htmlKey}, JSON: ${jsonKey})`);
+      logger.info(
+        `Word document converted successfully: ${documentId} (HTML: ${htmlKey}, JSON: ${jsonKey})`
+      );
     }).orElseThrow(`Error converting Word document ${documentId}`);
   }
 

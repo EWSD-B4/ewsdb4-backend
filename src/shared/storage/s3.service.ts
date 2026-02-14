@@ -5,11 +5,11 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
-import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import config from '@/config';
 import logger from '@/shared/logger';
-import {Readable} from 'stream';
-import {Try} from '@/shared/utils/Try';
+import { Readable } from 'stream';
+import { Try } from '@/shared/utils/Try';
 
 class S3Service {
   private readonly s3Client: S3Client;
@@ -85,7 +85,7 @@ class S3Service {
   }
 
   async fileExists(key: string): Promise<boolean> {
-    return await Try.execute(async () => {
+    return (await Try.execute(async () => {
       const fullKey = key.startsWith(this.documentPrefix) ? key : `${this.documentPrefix}${key}`;
       const command = new HeadObjectCommand({
         Bucket: this.bucketName,
@@ -94,7 +94,7 @@ class S3Service {
 
       await this.s3Client.send(command);
       return true;
-    }).orElseLogWarning('Error checking file existence in S3', false) as boolean;
+    }).orElseLogWarning('Error checking file existence in S3', false)) as boolean;
   }
 
   async getSignedDownloadUrl(key: string, expiresIn: number = 3600): Promise<string> {
@@ -105,11 +105,15 @@ class S3Service {
         Key: fullKey,
       });
 
-      return await getSignedUrl(this.s3Client, command, {expiresIn});
+      return await getSignedUrl(this.s3Client, command, { expiresIn });
     }).orElseThrow('Error generating signed URL');
   }
 
-  async getSignedUploadUrl(key: string, contentType: string, expiresIn: number = 3600): Promise<string> {
+  async getSignedUploadUrl(
+    key: string,
+    contentType: string,
+    expiresIn: number = 3600
+  ): Promise<string> {
     return Try.execute(async () => {
       const fullKey = `${this.documentPrefix}${key}`;
       const command = new PutObjectCommand({
@@ -118,7 +122,7 @@ class S3Service {
         ContentType: contentType,
       });
 
-      return await getSignedUrl(this.s3Client, command, {expiresIn});
+      return await getSignedUrl(this.s3Client, command, { expiresIn });
     }).orElseThrow('Error generating signed upload URL');
   }
 }

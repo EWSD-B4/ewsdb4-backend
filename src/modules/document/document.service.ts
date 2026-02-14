@@ -1,18 +1,15 @@
-import {v4 as uuidv4} from 'uuid';
-import {ResultSetHeader, RowDataPacket} from 'mysql2';
+import { v4 as uuidv4 } from 'uuid';
+import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import db from '@/shared/database/mysql';
 import s3Service from '@/shared/storage/s3.service';
 import rabbitmqService from '@/shared/mq/rabbitmq.service';
 import logger from '@/shared/logger';
-import {Document, DocumentResponse, DocumentStatus} from './document.types';
-import {BadRequestError, InternalServerError, NotFoundError} from '@/shared/errors/AppError';
-import {Try} from '@/shared/utils/Try';
+import { Document, DocumentResponse, DocumentStatus } from './document.types';
+import { BadRequestError, InternalServerError, NotFoundError } from '@/shared/errors/AppError';
+import { Try } from '@/shared/utils/Try';
 
 class DocumentService {
-  async uploadDocument(
-    userId: string,
-    file: Express.Multer.File
-  ): Promise<DocumentResponse> {
+  async uploadDocument(userId: string, file: Express.Multer.File): Promise<DocumentResponse> {
     const documentId = uuidv4();
     const fileName = `${documentId}-${file.originalname}`;
     const s3Key = `${userId}/${fileName}`;
@@ -42,7 +39,7 @@ class DocumentService {
       if (result.affectedRows === 0) {
         throw new InternalServerError('Failed to save document metadata');
       }
-    }).orElseThrow('Error saving document metadata')
+    }).orElseThrow('Error saving document metadata');
 
     await rabbitmqService.publishMessage({
       documentId,
@@ -69,10 +66,11 @@ class DocumentService {
 
   async getDocumentById(documentId: string, userId: string): Promise<Document | null> {
     return Try.execute(async () => {
-      const [rows] = await db.getPool().execute<RowDataPacket[]>(
-        'SELECT * FROM documents WHERE id = ? AND user_id = ?',
-        [documentId, userId]
-      );
+      const [rows] = await db
+        .getPool()
+        .execute<
+          RowDataPacket[]
+        >('SELECT * FROM documents WHERE id = ? AND user_id = ?', [documentId, userId]);
 
       if (rows.length === 0) {
         return null;
@@ -82,18 +80,26 @@ class DocumentService {
     }).orElseThrow('Error fetching document');
   }
 
-  async getUserDocuments(userId: string, limit: number = 50, offset: number = 0): Promise<Document[]> {
+  async getUserDocuments(
+    userId: string,
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<Document[]> {
     return Try.execute(async () => {
-      const [rows] = await db.getPool().execute<RowDataPacket[]>(
-        'SELECT * FROM documents WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
-        [userId, limit, offset]
-      );
+      const [rows] = await db
+        .getPool()
+        .execute<
+          RowDataPacket[]
+        >('SELECT * FROM documents WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?', [userId, limit, offset]);
 
       return rows as Document[];
     }).orElseThrow('Error fetching user documents');
   }
 
-  async downloadDocument(documentId: string, userId: string): Promise<{ buffer: Buffer; document: Document }> {
+  async downloadDocument(
+    documentId: string,
+    userId: string
+  ): Promise<{ buffer: Buffer; document: Document }> {
     return Try.execute(async () => {
       const document = await this.getDocumentById(documentId, userId);
 
@@ -107,7 +113,11 @@ class DocumentService {
     }).orElseThrow('Error downloading document');
   }
 
-  async getDownloadUrl(documentId: string, userId: string, expiresIn: number = 3600): Promise<string> {
+  async getDownloadUrl(
+    documentId: string,
+    userId: string,
+    expiresIn: number = 3600
+  ): Promise<string> {
     return Try.execute(async () => {
       const document = await this.getDocumentById(documentId, userId);
 
@@ -129,10 +139,12 @@ class DocumentService {
 
       await s3Service.deleteFile(document.s3Key);
 
-      const [result] = await db.getPool().execute<ResultSetHeader>(
-        'DELETE FROM documents WHERE id = ? AND user_id = ?',
-        [documentId, userId]
-      );
+      const [result] = await db
+        .getPool()
+        .execute<ResultSetHeader>('DELETE FROM documents WHERE id = ? AND user_id = ?', [
+          documentId,
+          userId,
+        ]);
 
       if (result.affectedRows === 0) {
         throw new InternalServerError('Failed to delete document metadata');
@@ -162,10 +174,12 @@ class DocumentService {
 
       params.push(documentId);
 
-      const [result] = await db.getPool().execute<ResultSetHeader>(
-        `UPDATE documents SET ${updateFields.join(', ')} WHERE id = ?`,
-        params
-      );
+      const [result] = await db
+        .getPool()
+        .execute<ResultSetHeader>(
+          `UPDATE documents SET ${updateFields.join(', ')} WHERE id = ?`,
+          params
+        );
 
       if (result.affectedRows === 0) {
         throw new InternalServerError('Failed to update document status');
@@ -181,10 +195,12 @@ class DocumentService {
     convertedJsonKey: string
   ): Promise<void> {
     return Try.execute(async () => {
-      const [result] = await db.getPool().execute<ResultSetHeader>(
-        `UPDATE documents SET converted_html_key = ?, converted_json_key = ?, updated_at = NOW() WHERE id = ?`,
-        [convertedHtmlKey, convertedJsonKey, documentId]
-      );
+      const [result] = await db
+        .getPool()
+        .execute<ResultSetHeader>(
+          `UPDATE documents SET converted_html_key = ?, converted_json_key = ?, updated_at = NOW() WHERE id = ?`,
+          [convertedHtmlKey, convertedJsonKey, documentId]
+        );
 
       if (result.affectedRows === 0) {
         throw new InternalServerError('Failed to update converted file keys');

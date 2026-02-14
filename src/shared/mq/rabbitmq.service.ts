@@ -1,8 +1,8 @@
 import amqplib from 'amqplib';
 import config from '@/config';
 import logger from '@/shared/logger';
-import {Try} from '@/shared/utils/Try';
-import {InternalServerError} from "@/shared/errors/AppError";
+import { Try } from '@/shared/utils/Try';
+import { InternalServerError } from '@/shared/errors/AppError';
 
 export interface DocumentMessage {
   documentId: string;
@@ -59,7 +59,10 @@ class RabbitMQService {
 
       this.isConnected = true;
       logger.info('RabbitMQ connected successfully');
-    }).orElseThrow('Failed to connect to RabbitMQ', new InternalServerError('Failed to connect to RabbitMQ'));
+    }).orElseThrow(
+      'Failed to connect to RabbitMQ',
+      new InternalServerError('Failed to connect to RabbitMQ')
+    );
   }
 
   async publishMessage(message: DocumentMessage): Promise<void> {
@@ -89,12 +92,13 @@ class RabbitMQService {
       }
 
       logger.info(`Message published to RabbitMQ: ${message.documentId}`);
-    }).orElseThrow('Error publishing message to RabbitMQ', new InternalServerError('Failed to publish message to RabbitMQ'));
+    }).orElseThrow(
+      'Error publishing message to RabbitMQ',
+      new InternalServerError('Failed to publish message to RabbitMQ')
+    );
   }
 
-  async consumeMessages(
-    callback: (message: DocumentMessage) => Promise<void>
-  ): Promise<void> {
+  async consumeMessages(callback: (message: DocumentMessage) => Promise<void>): Promise<void> {
     return Try.execute(async () => {
       if (!this.channel) {
         await this.connect();
@@ -134,7 +138,10 @@ class RabbitMQService {
       );
 
       logger.info('Started consuming messages from RabbitMQ');
-    }).orElseThrow('Error consuming messages from RabbitMQ', new InternalServerError('Failed to consume messages from RabbitMQ'));
+    }).orElseThrow(
+      'Error consuming messages from RabbitMQ',
+      new InternalServerError('Failed to consume messages from RabbitMQ')
+    );
   }
 
   async close(): Promise<void> {

@@ -1,5 +1,5 @@
 import logger from '@/shared/logger';
-import {AppError, InternalServerError} from '@/shared/errors/AppError';
+import { AppError, InternalServerError } from '@/shared/errors/AppError';
 
 /**
  * A Railway Oriented Programming (ROP) implementation to encapsulate exception handling logic,

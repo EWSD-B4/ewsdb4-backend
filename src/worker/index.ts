@@ -1,7 +1,7 @@
 import documentProcessor from './document-processor';
 import logger from '@/shared/logger';
 import config from '@/config';
-import {Try} from '@/shared/utils/Try';
+import { Try } from '@/shared/utils/Try';
 
 async function startWorker(): Promise<void> {
   await Try.execute(async () => {
@@ -11,9 +11,11 @@ async function startWorker(): Promise<void> {
     await documentProcessor.start();
 
     logger.info('Worker service started successfully');
-  }).onFailure(() => {
-    process.exit(1);
-  }).orElseLogWarning('Failed to start worker service');
+  })
+    .onFailure(() => {
+      process.exit(1);
+    })
+    .orElseLogWarning('Failed to start worker service');
 }
 
 process.on('SIGTERM', () => {
@@ -33,5 +35,5 @@ process.on('SIGINT', () => {
 });
 
 startWorker()
-    .then(r => logger.info('Worker started successfully', r))
-    .catch(e => logger.error('Failed to start worker service:', e));
+  .then((r) => logger.info('Worker started successfully', r))
+  .catch((e) => logger.error('Failed to start worker service:', e));
