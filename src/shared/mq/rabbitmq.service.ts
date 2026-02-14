@@ -12,6 +12,8 @@ export interface DocumentMessage {
   contentType: string;
   fileSize: number;
   uploadedAt: string;
+  retryCount?: number;
+  lastError?: string;
 }
 
 class RabbitMQService {
@@ -33,18 +35,43 @@ class RabbitMQService {
         throw new Error('Failed to create RabbitMQ channel');
       }
 
+      // Main exchange
       await this.channel.assertExchange(config.rabbitmq.exchangeName, 'topic', {
         durable: true,
       });
 
-      await this.channel.assertQueue(config.rabbitmq.queueName, {
+      // Dead Letter Exchange (DLX)
+      await this.channel.assertExchange(config.rabbitmq.dlxExchangeName, 'topic', {
         durable: true,
       });
 
+      // Main queue with DLX configuration
+      await this.channel.assertQueue(config.rabbitmq.queueName, {
+        durable: true,
+        deadLetterExchange: config.rabbitmq.dlxExchangeName,
+        deadLetterRoutingKey: config.rabbitmq.dlqRoutingKey,
+      });
+
+      // Dead Letter Queue (DLQ) with TTL for retry
+      await this.channel.assertQueue(config.rabbitmq.dlqName, {
+        durable: true,
+        messageTtl: config.rabbitmq.retryDelayMs,
+        deadLetterExchange: config.rabbitmq.exchangeName,
+        deadLetterRoutingKey: config.rabbitmq.routingKey,
+      });
+
+      // Bind main queue to main exchange
       await this.channel.bindQueue(
         config.rabbitmq.queueName,
         config.rabbitmq.exchangeName,
         config.rabbitmq.routingKey
+      );
+
+      // Bind DLQ to DLX
+      await this.channel.bindQueue(
+        config.rabbitmq.dlqName,
+        config.rabbitmq.dlxExchangeName,
+        config.rabbitmq.dlqRoutingKey
       );
 
       this.connection.on('error', (err: Error) => {
@@ -119,18 +146,39 @@ class RabbitMQService {
             return;
           }
 
-          try {
-            const message: DocumentMessage = JSON.parse(msg.content.toString());
-            logger.info(`Processing message: ${message.documentId}`);
+          const message: DocumentMessage = JSON.parse(msg.content.toString());
+          const retryCount = message.retryCount || 0;
+
+          await Try.execute(async () => {
+            logger.info(`Processing message: ${message.documentId} (retry: ${retryCount})`);
 
             await callback(message);
 
             channel.ack(msg);
             logger.info(`Message acknowledged: ${message.documentId}`);
-          } catch (error) {
-            logger.error('Error processing message:', error);
-            channel.nack(msg, false, false);
-          }
+          })
+            .onFailure(async (error: Error) => {
+              const errorMessage = error.message || 'Unknown error';
+
+              logger.error(`Error processing message ${message.documentId}:`, error);
+
+              if (retryCount >= config.rabbitmq.maxRetries) {
+                // Max retries reached - send to permanent DLQ (nack without requeue)
+                logger.error(
+                  `Max retries (${config.rabbitmq.maxRetries}) reached for message: ${message.documentId}. Moving to DLQ permanently.`
+                );
+                channel.nack(msg, false, false);
+              } else {
+                // Send to DLQ for retry (retry count will be incremented on next attempt)
+                logger.warn(
+                  `Retry ${retryCount + 1}/${config.rabbitmq.maxRetries} for message: ${message.documentId}. Will retry after ${config.rabbitmq.retryDelayMs}ms. Last error: ${errorMessage}`
+                );
+
+                // Nack to send to DLQ (which will auto-retry after TTL)
+                channel.nack(msg, false, false);
+              }
+            })
+            .orElseLogWarning(`Failed to process message ${message.documentId}`);
         },
         {
           noAck: false,
