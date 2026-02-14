@@ -147,7 +147,8 @@ class RabbitMQService {
           }
 
           const message: DocumentMessage = JSON.parse(msg.content.toString());
-          const retryCount = message.retryCount || 0;
+          // Read retry count from message headers (persisted across DLQ cycles)
+          const retryCount = (msg.properties.headers?.['x-retry-count'] as number) || 0;
 
           await Try.execute(async () => {
             logger.info(`Processing message: ${message.documentId} (retry: ${retryCount})`);
@@ -169,13 +170,37 @@ class RabbitMQService {
                 );
                 channel.nack(msg, false, false);
               } else {
-                // Send to DLQ for retry (retry count will be incremented on next attempt)
+                // Increment retry count and republish with updated header
+                const newRetryCount = retryCount + 1;
+                const updatedMessage: DocumentMessage = {
+                  ...message,
+                  retryCount: newRetryCount,
+                  lastError: errorMessage,
+                };
+
                 logger.warn(
-                  `Retry ${retryCount + 1}/${config.rabbitmq.maxRetries} for message: ${message.documentId}. Will retry after ${config.rabbitmq.retryDelayMs}ms. Last error: ${errorMessage}`
+                  `Retry ${newRetryCount}/${config.rabbitmq.maxRetries} for message: ${message.documentId}. Will retry after ${config.rabbitmq.retryDelayMs}ms. Last error: ${errorMessage}`
                 );
 
-                // Nack to send to DLQ (which will auto-retry after TTL)
-                channel.nack(msg, false, false);
+                // Publish to DLX with incremented retry count in headers
+                channel.publish(
+                  config.rabbitmq.dlxExchangeName,
+                  config.rabbitmq.dlqRoutingKey,
+                  Buffer.from(JSON.stringify(updatedMessage)),
+                  {
+                    persistent: true,
+                    contentType: 'application/json',
+                    timestamp: Date.now(),
+                    headers: {
+                      'x-retry-count': newRetryCount,
+                      'x-first-death-reason': msg.properties.headers?.['x-first-death-reason'] || errorMessage,
+                      'x-last-error': errorMessage,
+                    },
+                  }
+                );
+
+                // Ack the original message since we've republished it
+                channel.ack(msg);
               }
             })
             .orElseLogWarning(`Failed to process message ${message.documentId}`);
