@@ -21,6 +21,19 @@ interface Config {
     password?: string;
     db: number;
   };
+  aws: {
+    region: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+    s3BucketName: string;
+    s3DocumentPrefix: string;
+  };
+  rabbitmq: {
+    url: string;
+    queueName: string;
+    exchangeName: string;
+    routingKey: string;
+  };
   logging: {
     level: string;
   };
@@ -50,6 +63,19 @@ const config: Config = {
     port: parseInt(process.env.REDIS_PORT || '6379', 10),
     password: process.env.REDIS_PASSWORD || undefined,
     db: parseInt(process.env.REDIS_DB || '0', 10),
+  },
+  aws: {
+    region: process.env.AWS_REGION || 'us-east-1',
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+    s3BucketName: process.env.S3_BUCKET_NAME || '',
+    s3DocumentPrefix: process.env.S3_DOCUMENT_PREFIX || 'documents/',
+  },
+  rabbitmq: {
+    url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
+    queueName: process.env.RABBITMQ_QUEUE_NAME || 'document-processing',
+    exchangeName: process.env.RABBITMQ_EXCHANGE_NAME || 'documents',
+    routingKey: process.env.RABBITMQ_ROUTING_KEY || 'document.upload',
   },
   logging: {
     level: process.env.LOG_LEVEL || 'info',

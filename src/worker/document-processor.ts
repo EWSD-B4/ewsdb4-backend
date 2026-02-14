@@ -47,7 +47,7 @@ class DocumentProcessor {
 
       await documentService.updateDocumentStatus(documentId, DocumentStatus.COMPLETED);
       logger.info(`Document processed successfully: ${documentId}`);
-    }).onFailure(async (error: any) => {
+    }).onFailure(async (error: Error) => {
       await documentService.updateDocumentStatus(
         documentId,
         DocumentStatus.FAILED,
@@ -70,9 +70,12 @@ class DocumentProcessor {
     logger.info(`Processing Word document: ${documentId}`);
     
     return Try.execute(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       const result = await mammoth.convertToHtml({ buffer });
-      const html = result.value;
-      const messages = result.messages;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const html: string = result.value;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const messages: unknown[] = result.messages;
 
       if (messages.length > 0) {
         logger.warn(`Conversion warnings for ${documentId}:`, messages);

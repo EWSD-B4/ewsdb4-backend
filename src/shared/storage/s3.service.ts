@@ -24,8 +24,8 @@ class S3Service {
         secretAccessKey: config.aws.secretAccessKey,
       },
     });
-    this.bucketName = config.aws.s3.bucketName;
-    this.documentPrefix = config.aws.s3.documentPrefix;
+    this.bucketName = config.aws.s3BucketName;
+    this.documentPrefix = config.aws.s3DocumentPrefix;
     logger.info('S3Service initialized');
   }
 
@@ -48,7 +48,7 @@ class S3Service {
       await this.s3Client.send(command);
       logger.info(`File uploaded successfully to S3: ${fullKey}`);
       return fullKey;
-    }).orElseThrow('Error uploading file to S3', new Error('Failed to upload file to S3'));
+    }).orElseThrow('Error uploading file to S3');
   }
 
   async downloadFile(key: string): Promise<Buffer> {
@@ -68,7 +68,7 @@ class S3Service {
         stream.on('error', reject);
         stream.on('end', () => resolve(Buffer.concat(chunks)));
       });
-    }).orElseThrow('Error downloading file from S3', new Error('Failed to download file from S3'));
+    }).orElseThrow('Error downloading file from S3');
   }
 
   async deleteFile(key: string): Promise<void> {
@@ -81,7 +81,7 @@ class S3Service {
 
       await this.s3Client.send(command);
       logger.info(`File deleted successfully from S3: ${fullKey}`);
-    }).orElseThrow('Error deleting file from S3', new Error('Failed to delete file from S3'));
+    }).orElseThrow('Error deleting file from S3');
   }
 
   async fileExists(key: string): Promise<boolean> {
@@ -94,7 +94,7 @@ class S3Service {
 
       await this.s3Client.send(command);
       return true;
-    }).orElseLogWarning('Error checking file existence in S3', false) as unknown as Promise<boolean>;
+    }).orElseLogWarning('Error checking file existence in S3', false) as boolean;
   }
 
   async getSignedDownloadUrl(key: string, expiresIn: number = 3600): Promise<string> {
@@ -106,7 +106,7 @@ class S3Service {
       });
 
       return await getSignedUrl(this.s3Client, command, {expiresIn});
-    }).orElseThrow('Error generating signed URL', new Error('Failed to generate signed URL'));
+    }).orElseThrow('Error generating signed URL');
   }
 
   async getSignedUploadUrl(key: string, contentType: string, expiresIn: number = 3600): Promise<string> {
@@ -119,7 +119,7 @@ class S3Service {
       });
 
       return await getSignedUrl(this.s3Client, command, {expiresIn});
-    }).orElseThrow('Error generating signed upload URL', new Error('Failed to generate signed upload URL'));
+    }).orElseThrow('Error generating signed upload URL');
   }
 }
 
