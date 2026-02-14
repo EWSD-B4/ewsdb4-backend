@@ -33,6 +33,11 @@ interface Config {
     queueName: string;
     exchangeName: string;
     routingKey: string;
+    dlxExchangeName: string;
+    dlqName: string;
+    dlqRoutingKey: string;
+    maxRetries: number;
+    retryDelayMs: number;
   };
   logging: {
     level: string;
@@ -76,6 +81,11 @@ const config: Config = {
     queueName: process.env.RABBITMQ_QUEUE_NAME || 'document-processing',
     exchangeName: process.env.RABBITMQ_EXCHANGE_NAME || 'documents',
     routingKey: process.env.RABBITMQ_ROUTING_KEY || 'document.upload',
+    dlxExchangeName: process.env.RABBITMQ_DLX_EXCHANGE_NAME || 'documents-dlx',
+    dlqName: process.env.RABBITMQ_DLQ_NAME || 'document-processing-dlq',
+    dlqRoutingKey: process.env.RABBITMQ_DLQ_ROUTING_KEY || 'document.failed',
+    maxRetries: parseInt(process.env.RABBITMQ_MAX_RETRIES || '3', 10),
+    retryDelayMs: parseInt(process.env.RABBITMQ_RETRY_DELAY_MS || '60000', 10),
   },
   logging: {
     level: process.env.LOG_LEVEL || 'info',
