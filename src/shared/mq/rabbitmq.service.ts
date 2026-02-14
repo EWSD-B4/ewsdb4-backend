@@ -3,8 +3,8 @@ import config from '@/config';
 import logger from '@/shared/logger';
 import { Try } from '@/shared/utils/Try';
 import { InternalServerError } from '@/shared/errors/AppError';
-import documentService from "@/modules/document/document.service";
-import {DocumentStatus} from "@/modules/document/document.types";
+import documentService from '@/modules/document/document.service';
+import { DocumentStatus } from '@/modules/document/document.types';
 
 export interface DocumentMessage {
   documentId: string;
@@ -173,9 +173,9 @@ class RabbitMQService {
 
                 // Update document status to FAILED with error details
                 await documentService.updateDocumentStatus(
-                    message.documentId,
-                    DocumentStatus.FAILED,
-                    `Failed after ${config.rabbitmq.maxRetries} retries. Last error: ${errorMessage}`
+                  message.documentId,
+                  DocumentStatus.FAILED,
+                  `Failed after ${config.rabbitmq.maxRetries} retries. Last error: ${errorMessage}`
                 );
 
                 channel.nack(msg, false, false);
@@ -203,7 +203,8 @@ class RabbitMQService {
                     timestamp: Date.now(),
                     headers: {
                       'x-retry-count': newRetryCount,
-                      'x-first-death-reason': msg.properties.headers?.['x-first-death-reason'] || errorMessage,
+                      'x-first-death-reason':
+                        msg.properties.headers?.['x-first-death-reason'] || errorMessage,
                       'x-last-error': errorMessage,
                     },
                   }
