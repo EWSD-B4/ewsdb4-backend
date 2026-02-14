@@ -3,6 +3,8 @@ import config from '@/config';
 import logger from '@/shared/logger';
 import { Try } from '@/shared/utils/Try';
 import { InternalServerError } from '@/shared/errors/AppError';
+import documentService from "@/modules/document/document.service";
+import {DocumentStatus} from "@/modules/document/document.types";
 
 export interface DocumentMessage {
   documentId: string;
@@ -168,6 +170,14 @@ class RabbitMQService {
                 logger.error(
                   `Max retries (${config.rabbitmq.maxRetries}) reached for message: ${message.documentId}. Moving to DLQ permanently.`
                 );
+
+                // Update document status to FAILED with error details
+                await documentService.updateDocumentStatus(
+                    message.documentId,
+                    DocumentStatus.FAILED,
+                    `Failed after ${config.rabbitmq.maxRetries} retries. Last error: ${errorMessage}`
+                );
+
                 channel.nack(msg, false, false);
               } else {
                 // Increment retry count and republish with updated header
