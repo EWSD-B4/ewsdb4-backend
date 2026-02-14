@@ -146,39 +146,39 @@ class RabbitMQService {
             return;
           }
 
-          try {
-            const message: DocumentMessage = JSON.parse(msg.content.toString());
-            const retryCount = message.retryCount || 0;
-            
+          const message: DocumentMessage = JSON.parse(msg.content.toString());
+          const retryCount = message.retryCount || 0;
+
+          await Try.execute(async () => {
             logger.info(`Processing message: ${message.documentId} (retry: ${retryCount})`);
 
             await callback(message);
 
             channel.ack(msg);
             logger.info(`Message acknowledged: ${message.documentId}`);
-          } catch (error) {
-            const message: DocumentMessage = JSON.parse(msg.content.toString());
-            const retryCount = message.retryCount || 0;
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          })
+            .onFailure(async (error: Error) => {
+              const errorMessage = error.message || 'Unknown error';
 
-            logger.error(`Error processing message ${message.documentId}:`, error);
+              logger.error(`Error processing message ${message.documentId}:`, error);
 
-            if (retryCount >= config.rabbitmq.maxRetries) {
-              // Max retries reached - send to permanent DLQ (nack without requeue)
-              logger.error(
-                `Max retries (${config.rabbitmq.maxRetries}) reached for message: ${message.documentId}. Moving to DLQ permanently.`
-              );
-              channel.nack(msg, false, false);
-            } else {
-              // Send to DLQ for retry (retry count will be incremented on next attempt)
-              logger.warn(
-                `Retry ${retryCount + 1}/${config.rabbitmq.maxRetries} for message: ${message.documentId}. Will retry after ${config.rabbitmq.retryDelayMs}ms. Last error: ${errorMessage}`
-              );
+              if (retryCount >= config.rabbitmq.maxRetries) {
+                // Max retries reached - send to permanent DLQ (nack without requeue)
+                logger.error(
+                  `Max retries (${config.rabbitmq.maxRetries}) reached for message: ${message.documentId}. Moving to DLQ permanently.`
+                );
+                channel.nack(msg, false, false);
+              } else {
+                // Send to DLQ for retry (retry count will be incremented on next attempt)
+                logger.warn(
+                  `Retry ${retryCount + 1}/${config.rabbitmq.maxRetries} for message: ${message.documentId}. Will retry after ${config.rabbitmq.retryDelayMs}ms. Last error: ${errorMessage}`
+                );
 
-              // Nack to send to DLQ (which will auto-retry after TTL)
-              channel.nack(msg, false, false);
-            }
-          }
+                // Nack to send to DLQ (which will auto-retry after TTL)
+                channel.nack(msg, false, false);
+              }
+            })
+            .orElseLogWarning(`Failed to process message ${message.documentId}`);
         },
         {
           noAck: false,
