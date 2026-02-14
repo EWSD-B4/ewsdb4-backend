@@ -70,11 +70,11 @@ class DocumentProcessor {
     logger.info(`Processing Word document: ${documentId}`);
     
     return Try.execute(async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+       
       const result = await mammoth.convertToHtml({ buffer });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+       
       const html: string = result.value;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+       
       const messages: unknown[] = result.messages;
 
       if (messages.length > 0) {
