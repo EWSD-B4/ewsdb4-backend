@@ -1,24 +1,18 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '@/middleware/asyncHandler';
 import documentService from './document.service';
+import { successResponse, errorResponse } from '@/utils/response';
 
 class DocumentController {
   uploadDocument = asyncHandler(async (req: Request, res: Response) => {
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No file uploaded',
-      });
+      return res.status(400).json(errorResponse('No file uploaded'));
     }
 
     const userId = req.user!.id;
     const document = await documentService.uploadDocument(userId, req.file);
 
-    return res.status(201).json({
-      success: true,
-      message: 'Document uploaded successfully and queued for processing',
-      data: document,
-    });
+    return res.status(201).json(successResponse('Document uploaded successfully and queued for processing', document));
   });
 
   getUserDocuments = asyncHandler(async (req: Request, res: Response) => {
@@ -28,17 +22,14 @@ class DocumentController {
 
     const documents = await documentService.getUserDocuments(userId, limit, offset);
 
-    res.json({
-      success: true,
-      data: {
-        documents,
-        pagination: {
-          limit,
-          offset,
-          total: documents.length,
-        },
+    res.json(successResponse('Documents retrieved successfully', {
+      documents,
+      pagination: {
+        limit,
+        offset,
+        total: documents.length,
       },
-    });
+    }));
   });
 
   getDocumentById = asyncHandler(async (req: Request, res: Response) => {
@@ -48,16 +39,10 @@ class DocumentController {
     const document = await documentService.getDocumentById(id, userId);
 
     if (!document) {
-      return res.status(404).json({
-        success: false,
-        message: 'Document not found',
-      });
+      return res.status(404).json(errorResponse('Document not found'));
     }
 
-    return res.json({
-      success: true,
-      data: document,
-    });
+    return res.json(successResponse('Document retrieved successfully', document));
   });
 
   downloadDocument = asyncHandler(async (req: Request, res: Response) => {
@@ -80,13 +65,10 @@ class DocumentController {
 
     const downloadUrl = await documentService.getDownloadUrl(id, userId, expiresIn);
 
-    res.json({
-      success: true,
-      data: {
-        downloadUrl,
-        expiresIn,
-      },
-    });
+    res.json(successResponse('Download URL generated successfully', {
+      downloadUrl,
+      expiresIn,
+    }));
   });
 
   deleteDocument = asyncHandler(async (req: Request, res: Response) => {
@@ -95,10 +77,7 @@ class DocumentController {
 
     await documentService.deleteDocument(id, userId);
 
-    res.json({
-      success: true,
-      message: 'Document deleted successfully',
-    });
+    res.json(successResponse('Document deleted successfully'));
   });
 
   getConvertedHtml = asyncHandler(async (req: Request, res: Response) => {

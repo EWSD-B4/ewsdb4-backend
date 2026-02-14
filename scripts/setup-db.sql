@@ -18,6 +18,30 @@ CREATE TABLE IF NOT EXISTS users (
   INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Documents table
+CREATE TABLE IF NOT EXISTS documents (
+  id VARCHAR(36) PRIMARY KEY,
+  user_id INT NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  original_name VARCHAR(255) NOT NULL,
+  s3_key VARCHAR(500) NOT NULL,
+  content_type VARCHAR(100) NOT NULL,
+  file_size BIGINT NOT NULL,
+  status ENUM('pending', 'processing', 'completed', 'failed') NOT NULL DEFAULT 'pending',
+  processing_error TEXT,
+  converted_html_key VARCHAR(500),
+  converted_json_key VARCHAR(500),
+  uploaded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  processed_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_user_id (user_id),
+  INDEX idx_status (status),
+  INDEX idx_created_at (created_at),
+  INDEX idx_uploaded_at (uploaded_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Add more tables as needed for your project
 
 -- Example: Sessions table (if you implement authentication)

@@ -4,12 +4,14 @@ export interface User {
   name: string;
   createdAt: Date;
   updatedAt: Date;
+  role: string;
 }
 
 export interface CreateUserDTO {
   email: string;
   name: string;
   password: string;
+  role_id: number;
 }
 
 export interface UpdateUserDTO {

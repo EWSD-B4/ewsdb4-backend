@@ -1,70 +1,35 @@
 import { Request, Response } from 'express';
 import userService from './user.service';
 import { asyncHandler } from '@/middleware/asyncHandler';
-import { ApiResponse } from '@/types/common';
-import { User } from './user.types';
+import { successResponse } from '@/utils/response';
 
 class UserController {
   getAllUsers = asyncHandler(async (_req: Request, res: Response) => {
     const users = await userService.getAllUsers();
-
-    const response: ApiResponse<User[]> = {
-      success: true,
-      message: 'Users retrieved successfully',
-      data: users,
-    };
-
-    res.status(200).json(response);
+    res.status(200).json(successResponse('Users retrieved successfully', users));
   });
 
   getUserById = asyncHandler(async (req: Request, res: Response) => {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const user = await userService.getUserById(id);
-
-    const response: ApiResponse<User> = {
-      success: true,
-      message: 'User retrieved successfully',
-      data: user,
-    };
-
-    res.status(200).json(response);
+    res.status(200).json(successResponse('User retrieved successfully', user));
   });
 
   createUser = asyncHandler(async (req: Request, res: Response) => {
     const user = await userService.createUser(req.body);
-
-    const response: ApiResponse<User> = {
-      success: true,
-      message: 'User created successfully',
-      data: user,
-    };
-
-    res.status(201).json(response);
+    res.status(201).json(successResponse('User created successfully', user));
   });
 
   updateUser = asyncHandler(async (req: Request, res: Response) => {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const user = await userService.updateUser(id, req.body);
-
-    const response: ApiResponse<User> = {
-      success: true,
-      message: 'User updated successfully',
-      data: user,
-    };
-
-    res.status(200).json(response);
+    res.status(200).json(successResponse('User updated successfully', user));
   });
 
   deleteUser = asyncHandler(async (req: Request, res: Response) => {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     await userService.deleteUser(id);
-
-    const response: ApiResponse = {
-      success: true,
-      message: 'User deleted successfully',
-    };
-
-    res.status(200).json(response);
+    res.status(200).json(successResponse('User deleted successfully'));
   });
 }
 
