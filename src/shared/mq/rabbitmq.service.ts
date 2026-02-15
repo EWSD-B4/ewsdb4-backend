@@ -3,6 +3,8 @@ import config from '@/config';
 import logger from '@/shared/logger';
 import { Try } from '@/shared/utils/Try';
 import { InternalServerError } from '@/shared/errors/AppError';
+import documentService from '@/modules/document/document.service';
+import { DocumentStatus } from '@/modules/document/document.types';
 
 export interface DocumentMessage {
   documentId: string;
@@ -147,7 +149,8 @@ class RabbitMQService {
           }
 
           const message: DocumentMessage = JSON.parse(msg.content.toString());
-          const retryCount = message.retryCount || 0;
+          // Read retry count from message headers (persisted across DLQ cycles)
+          const retryCount = (msg.properties.headers?.['x-retry-count'] as number) || 0;
 
           await Try.execute(async () => {
             logger.info(`Processing message: ${message.documentId} (retry: ${retryCount})`);
@@ -167,15 +170,48 @@ class RabbitMQService {
                 logger.error(
                   `Max retries (${config.rabbitmq.maxRetries}) reached for message: ${message.documentId}. Moving to DLQ permanently.`
                 );
-                channel.nack(msg, false, false);
-              } else {
-                // Send to DLQ for retry (retry count will be incremented on next attempt)
-                logger.warn(
-                  `Retry ${retryCount + 1}/${config.rabbitmq.maxRetries} for message: ${message.documentId}. Will retry after ${config.rabbitmq.retryDelayMs}ms. Last error: ${errorMessage}`
+
+                // Update document status to FAILED with error details
+                await documentService.updateDocumentStatus(
+                  message.documentId,
+                  DocumentStatus.FAILED,
+                  `Failed after ${config.rabbitmq.maxRetries} retries. Last error: ${errorMessage}`
                 );
 
-                // Nack to send to DLQ (which will auto-retry after TTL)
                 channel.nack(msg, false, false);
+              } else {
+                // Increment retry count and republish with updated header
+                const newRetryCount = retryCount + 1;
+                const updatedMessage: DocumentMessage = {
+                  ...message,
+                  retryCount: newRetryCount,
+                  lastError: errorMessage,
+                };
+
+                logger.warn(
+                  `Retry ${newRetryCount}/${config.rabbitmq.maxRetries} for message: ${message.documentId}. Will retry after ${config.rabbitmq.retryDelayMs}ms. Last error: ${errorMessage}`
+                );
+
+                // Publish to DLX with incremented retry count in headers
+                channel.publish(
+                  config.rabbitmq.dlxExchangeName,
+                  config.rabbitmq.dlqRoutingKey,
+                  Buffer.from(JSON.stringify(updatedMessage)),
+                  {
+                    persistent: true,
+                    contentType: 'application/json',
+                    timestamp: Date.now(),
+                    headers: {
+                      'x-retry-count': newRetryCount,
+                      'x-first-death-reason':
+                        msg.properties.headers?.['x-first-death-reason'] || errorMessage,
+                      'x-last-error': errorMessage,
+                    },
+                  }
+                );
+
+                // Ack the original message since we've republished it
+                channel.ack(msg);
               }
             })
             .orElseLogWarning(`Failed to process message ${message.documentId}`);

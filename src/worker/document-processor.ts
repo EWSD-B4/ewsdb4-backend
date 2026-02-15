@@ -31,18 +31,20 @@ class DocumentProcessor {
         throw new Error('File not found in S3');
       }
 
-      const fileBuffer = await s3Service.downloadFile(s3Key);
-
-      if (contentType.includes('html')) {
-        await this.processHtmlDocument(fileBuffer, documentId);
-      } else if (contentType.includes('pdf')) {
-        await this.processPdfDocument(fileBuffer, documentId);
-      } else if (contentType.includes('word') || contentType.includes('msword')) {
-        await this.processWordDocument(fileBuffer, documentId);
-      } else if (contentType.includes('image')) {
-        await this.processImageDocument(fileBuffer, documentId);
+      if (contentType.includes('image')) {
+        await this.processImageDocument(documentId);
       } else {
-        await this.processGenericDocument(fileBuffer, documentId);
+        const fileBuffer = await s3Service.downloadFile(s3Key);
+
+        if (contentType.includes('html')) {
+          await this.processHtmlDocument(fileBuffer, documentId);
+        } else if (contentType.includes('pdf')) {
+          await this.processPdfDocument(fileBuffer, documentId);
+        } else if (contentType.includes('word') || contentType.includes('msword')) {
+          await this.processWordDocument(fileBuffer, documentId);
+        } else {
+          await this.processGenericDocument(fileBuffer, documentId);
+        }
       }
 
       await documentService.updateDocumentStatus(documentId, DocumentStatus.COMPLETED);
@@ -111,9 +113,10 @@ class DocumentProcessor {
     }).orElseThrow(`Error converting Word document ${documentId}`);
   }
 
-  private async processImageDocument(_buffer: Buffer, documentId: string): Promise<void> {
-    logger.info(`Processing image document: ${documentId}`);
-    await new Promise((resolve) => setTimeout(resolve, 500));
+  private async processImageDocument(documentId: string): Promise<void> {
+    logger.info(`Image document requires no processing (already stored in S3): ${documentId}`);
+    await documentService.updateDocumentStatus(documentId, DocumentStatus.COMPLETED);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
   private async processGenericDocument(_buffer: Buffer, documentId: string): Promise<void> {

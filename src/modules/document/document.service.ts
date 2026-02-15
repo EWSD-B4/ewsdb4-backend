@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import db from '@/shared/database/mysql';
 import s3Service from '@/shared/storage/s3.service';
@@ -10,7 +10,7 @@ import { Try } from '@/shared/utils/Try';
 
 class DocumentService {
   async uploadDocument(userId: string, file: Express.Multer.File): Promise<DocumentResponse> {
-    const documentId = uuidv4();
+    const documentId = randomUUID();
     const fileName = `${documentId}-${file.originalname}`;
     const s3Key = `${userId}/${fileName}`;
 
