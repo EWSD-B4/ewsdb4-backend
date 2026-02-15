@@ -3,7 +3,7 @@ import { AppError } from './errorHandler';
 import { asyncHandler } from './asyncHandler';
 
 export const authorize = (...allowedRoles: string[]) => {
-  return asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
+  return asyncHandler((req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
       throw new AppError('Authentication required', 401);
     }

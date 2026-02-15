@@ -1,6 +1,6 @@
 import { ApiResponse } from '@/types/common';
 
-export function createApiResponse<T = any>(
+export function createApiResponse<T = unknown>(
   success: boolean,
   message?: string,
   data?: T,
@@ -15,7 +15,7 @@ export function createApiResponse<T = any>(
   };
 }
 
-export function successResponse<T = any>(message: string, data?: T): ApiResponse<T> {
+export function successResponse<T = unknown>(message: string, data?: T): ApiResponse<T> {
   return createApiResponse(true, message, data);
 }
 
