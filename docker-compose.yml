@@ -99,11 +99,11 @@ services:
     networks:
       - app-network
 
-  worker-document:
+  worker-node:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ewsdb4-worker-document
+    container_name: ewsdb4-worker-node
     restart: unless-stopped
     command: node dist/worker/index.js
     environment:
@@ -127,46 +127,6 @@ services:
       - RABBITMQ_DLX_EXCHANGE_NAME=documents-dlx
       - RABBITMQ_DLQ_NAME=document-processing-dlq
       - RABBITMQ_DLQ_ROUTING_KEY=document.failed
-      - RABBITMQ_MAX_RETRIES=${RABBITMQ_MAX_RETRIES:-3}
-      - RABBITMQ_RETRY_DELAY_MS=${RABBITMQ_RETRY_DELAY_MS:-60000}
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - app-network
-
-  worker-image:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: ewsdb4-worker-image
-    restart: unless-stopped
-    command: node dist/worker/index.js
-    environment:
-      - NODE_ENV=${NODE_ENV:-production}
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - AWS_REGION=${AWS_REGION}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
-      - S3_DOCUMENT_PREFIX=${S3_DOCUMENT_PREFIX:-documents/}
-      - RABBITMQ_URL=amqp://rabbitmq:5672
-      - RABBITMQ_QUEUE_NAME=image-processing
-      - RABBITMQ_EXCHANGE_NAME=documents
-      - RABBITMQ_ROUTING_KEY=image.upload
-      - RABBITMQ_DLX_EXCHANGE_NAME=documents-dlx
-      - RABBITMQ_DLQ_NAME=image-processing-dlq
-      - RABBITMQ_DLQ_ROUTING_KEY=image.failed
       - RABBITMQ_MAX_RETRIES=${RABBITMQ_MAX_RETRIES:-3}
       - RABBITMQ_RETRY_DELAY_MS=${RABBITMQ_RETRY_DELAY_MS:-60000}
     depends_on:

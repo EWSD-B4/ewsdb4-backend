@@ -7,21 +7,24 @@ import { Try } from '@/shared/utils/Try';
 
 class AuthService {
   async register(data: RegisterDTO): Promise<AuthResponse> {
-    const existingUser = await Try.execute(() => userRepository.findByEmail(data.email))
-      .orElseThrow('Failed to check existing user');
-    
+    const existingUser = await Try.execute(() =>
+      userRepository.findByEmail(data.email)
+    ).orElseThrow('Failed to check existing user');
+
     if (existingUser) {
       throw new AppError('User with this email already exists', 409);
     }
 
     const hashedPassword = await hashPassword(data.password);
 
-    const user = await Try.execute(() => userRepository.create({
-      email: data.email,
-      name: data.name,
-      password: hashedPassword,
-      role_id: data.role_id ?? 1,
-    })).orElseThrow('Failed to create user');
+    const user = await Try.execute(() =>
+      userRepository.create({
+        email: data.email,
+        name: data.name,
+        password: hashedPassword,
+        role_id: data.role_id ?? 1,
+      })
+    ).orElseThrow('Failed to create user');
 
     const token = generateToken({
       userId: user.id,
@@ -41,9 +44,10 @@ class AuthService {
   }
 
   async login(data: LoginDTO): Promise<AuthResponse> {
-    const user = await Try.execute(() => userRepository.findByEmailWithPassword(data.email))
-      .orElseThrow('Failed to authenticate user');
-    
+    const user = await Try.execute(() =>
+      userRepository.findByEmailWithPassword(data.email)
+    ).orElseThrow('Failed to authenticate user');
+
     if (!user) {
       throw new AppError('Invalid email or password', 401);
     }

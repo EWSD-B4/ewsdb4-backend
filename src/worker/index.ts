@@ -2,11 +2,16 @@ import documentProcessor from './document-processor';
 import logger from '@/shared/logger';
 import config from '@/config';
 import { Try } from '@/shared/utils/Try';
+import database from '@/shared/database/mysql';
+import cache from '@/shared/cache/redis';
 
 async function startWorker(): Promise<void> {
   await Try.execute(async () => {
     logger.info('Starting worker service...');
     logger.info(`Environment: ${config.env}`);
+
+    await database.connect();
+    await cache.connect();
 
     await documentProcessor.start();
 
@@ -22,6 +27,8 @@ process.on('SIGTERM', () => {
   void (async () => {
     logger.info('SIGTERM signal received: closing worker gracefully');
     await documentProcessor.stop();
+    await database.disconnect();
+    await cache.disconnect();
     process.exit(0);
   })();
 });
@@ -30,6 +37,8 @@ process.on('SIGINT', () => {
   void (async () => {
     logger.info('SIGINT signal received: closing worker gracefully');
     await documentProcessor.stop();
+    await database.disconnect();
+    await cache.disconnect();
     process.exit(0);
   })();
 });

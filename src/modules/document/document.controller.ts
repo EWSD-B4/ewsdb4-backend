@@ -12,7 +12,9 @@ class DocumentController {
     const userId = req.user!.id;
     const document = await documentService.uploadDocument(userId, req.file);
 
-    return res.status(201).json(successResponse('Document uploaded successfully and queued for processing', document));
+    return res
+      .status(201)
+      .json(successResponse('Document uploaded successfully and queued for processing', document));
   });
 
   getUserDocuments = asyncHandler(async (req: Request, res: Response) => {
@@ -22,14 +24,16 @@ class DocumentController {
 
     const documents = await documentService.getUserDocuments(userId, limit, offset);
 
-    res.json(successResponse('Documents retrieved successfully', {
-      documents,
-      pagination: {
-        limit,
-        offset,
-        total: documents.length,
-      },
-    }));
+    res.json(
+      successResponse('Documents retrieved successfully', {
+        documents,
+        pagination: {
+          limit,
+          offset,
+          total: documents.length,
+        },
+      })
+    );
   });
 
   getDocumentById = asyncHandler(async (req: Request, res: Response) => {
@@ -65,10 +69,12 @@ class DocumentController {
 
     const downloadUrl = await documentService.getDownloadUrl(id, userId, expiresIn);
 
-    res.json(successResponse('Download URL generated successfully', {
-      downloadUrl,
-      expiresIn,
-    }));
+    res.json(
+      successResponse('Download URL generated successfully', {
+        downloadUrl,
+        expiresIn,
+      })
+    );
   });
 
   deleteDocument = asyncHandler(async (req: Request, res: Response) => {

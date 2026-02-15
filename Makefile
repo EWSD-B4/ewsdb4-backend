@@ -68,8 +68,8 @@ docker-down:
 
 docker-restart:
 	@echo "Rebuilding and restarting containers after code update..."
-	docker-compose build app worker-document worker-image
-	docker-compose up -d --force-recreate app worker-document worker-image
+	docker-compose build app worker-node
+	docker-compose up -d --force-recreate app worker-node
 	@echo "Containers restarted successfully!"
 
 docker-rebuild:
