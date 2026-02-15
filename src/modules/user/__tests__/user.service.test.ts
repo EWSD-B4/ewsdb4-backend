@@ -71,6 +71,7 @@ describe('UserService', () => {
         email: 'new@example.com',
         name: 'New User',
         password: 'password123',
+        role_id: 1,
       };
 
       const mockUser = {
@@ -96,6 +97,7 @@ describe('UserService', () => {
         email: 'existing@example.com',
         name: 'Existing User',
         password: 'password123',
+        role_id: 1,
       };
 
       (userRepository.findByEmail as jest.Mock).mockResolvedValue({ id: '1' });
