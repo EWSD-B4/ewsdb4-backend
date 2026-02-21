@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AppError } from './errorHandler';
 import { verifyToken } from '@/utils/jwt';
 import { asyncHandler } from './asyncHandler';
+import cache from '@/shared/cache/redis';
 
 export const authenticate = asyncHandler(
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -19,6 +20,11 @@ export const authenticate = asyncHandler(
     }
 
     const decoded = verifyToken(token);
+
+    const loginState = await cache.get(`auth:state:user:${decoded.userId}`);
+    if (loginState !== 'logged_in') {
+      throw new AppError('Authentication required. Please login again.', 401);
+    }
 
     req.user = {
       id: decoded.userId,

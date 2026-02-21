@@ -17,6 +17,11 @@ class AuthController {
   getCurrentUser = asyncHandler(async (req: Request, res: Response) => {
     res.status(200).json(successResponse('Current user retrieved successfully', req.user));
   });
+
+  logout = asyncHandler(async (req: Request, res: Response) => {
+    await authService.logout(req.user!.id);
+    res.status(200).json(successResponse('Logout successful'));
+  });
 }
 
 export default new AuthController();

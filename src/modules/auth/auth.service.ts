@@ -4,6 +4,7 @@ import { AppError } from '@/middleware/errorHandler';
 import { hashPassword, comparePassword } from '@/utils/password';
 import { generateToken } from '@/utils/jwt';
 import { Try } from '@/shared/utils/Try';
+import cache from '@/shared/cache/redis';
 
 class AuthService {
   async register(data: RegisterDTO): Promise<AuthResponse> {
@@ -31,6 +32,8 @@ class AuthService {
       email: user.email,
       role: user.role,
     });
+
+    await cache.set(`auth:state:user:${user.id}`, 'logged_in');
 
     return {
       user: {
@@ -63,6 +66,8 @@ class AuthService {
       role: 'user',
     });
 
+    await cache.set(`auth:state:user:${user.id}`, 'logged_in');
+
     return {
       user: {
         id: user.id,
@@ -72,6 +77,10 @@ class AuthService {
       },
       token,
     };
+  }
+
+  async logout(userId: string): Promise<void> {
+    await cache.set(`auth:state:user:${userId}`, 'logged_out');
   }
 }
 
