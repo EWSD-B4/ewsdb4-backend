@@ -7,6 +7,7 @@ export interface RegisterDTO {
   email: string;
   name: string;
   password: string;
+  role_id?: number;
 }
 
 export interface AuthResponse {
@@ -14,6 +15,7 @@ export interface AuthResponse {
     id: string;
     email: string;
     name: string;
+    role: string;
   };
   token: string;
 }

@@ -1,42 +1,26 @@
 import { Request, Response } from 'express';
 import authService from './auth.service';
 import { asyncHandler } from '@/middleware/asyncHandler';
-import { ApiResponse } from '@/types/common';
-import { AuthResponse } from './auth.types';
+import { successResponse } from '@/utils/response';
 
 class AuthController {
   register = asyncHandler(async (req: Request, res: Response) => {
     const result = await authService.register(req.body);
-
-    const response: ApiResponse<AuthResponse> = {
-      success: true,
-      message: 'User registered successfully',
-      data: result,
-    };
-
-    res.status(201).json(response);
+    res.status(201).json(successResponse('User registered successfully', result));
   });
 
   login = asyncHandler(async (req: Request, res: Response) => {
     const result = await authService.login(req.body);
-
-    const response: ApiResponse<AuthResponse> = {
-      success: true,
-      message: 'Login successful',
-      data: result,
-    };
-
-    res.status(200).json(response);
+    res.status(200).json(successResponse('Login successful', result));
   });
 
   getCurrentUser = asyncHandler(async (req: Request, res: Response) => {
-    const response: ApiResponse = {
-      success: true,
-      message: 'Current user retrieved successfully',
-      data: req.user,
-    };
+    res.status(200).json(successResponse('Current user retrieved successfully', req.user));
+  });
 
-    res.status(200).json(response);
+  logout = asyncHandler(async (req: Request, res: Response) => {
+    await authService.logout(req.user!.id);
+    res.status(200).json(successResponse('Logout successful'));
   });
 }
 

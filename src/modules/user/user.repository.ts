@@ -24,17 +24,18 @@ class UserRepository {
   }
 
   async findByEmailWithPassword(email: string): Promise<(User & { password: string }) | null> {
-    const query = `SELECT id, email, name, password, created_at as createdAt, updated_at as updatedAt FROM ${this.tableName} WHERE email = ?`;
+    const query = `SELECT ${this.tableName}.id, ${this.tableName}.email, ${this.tableName}.name, ${this.tableName}.password, ${this.tableName}.created_at as createdAt, ${this.tableName}.updated_at as updatedAt, roles.role FROM ${this.tableName} JOIN roles ON ${this.tableName}.role_id = roles.role_id WHERE ${this.tableName}.email = ?`;
     const users = await database.query<RowDataPacket[]>(query, [email]);
     return users.length > 0 ? (users[0] as User & { password: string }) : null;
   }
 
   async create(userData: CreateUserDTO): Promise<User> {
-    const query = `INSERT INTO ${this.tableName} (email, name, password) VALUES (?, ?, ?)`;
+    const query = `INSERT INTO ${this.tableName} (email, name, password, role_id) VALUES (?, ?, ?, ?)`;
     const result = await database.query<any>(query, [
       userData.email,
       userData.name,
       userData.password,
+      userData.role_id,
     ]);
 
     const newUser = await this.findById(result.insertId);

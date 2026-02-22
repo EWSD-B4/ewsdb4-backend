@@ -37,7 +37,8 @@
       "@/utils/*": ["src/utils/*"],
       "@/types/*": ["src/types/*"],
       "@/routes": ["src/routes/index.ts"],
-      "@/routes/*": ["src/routes/*"]
+      "@/routes/*": ["src/routes/*"],
+      "@/constants/*": ["src/constants/*"]
     },
     "typeRoots": ["./node_modules/@types", "./src/types"]
   },

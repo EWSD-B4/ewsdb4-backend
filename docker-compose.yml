@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build:
@@ -14,15 +12,33 @@ services:
       - PORT=${PORT:-3000}
       - DB_HOST=mysql
       - DB_PORT=3306
-      - DB_USER=${DB_USER:-root}
+      - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - S3_DOCUMENT_PREFIX=${S3_DOCUMENT_PREFIX:-documents/}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+      - RABBITMQ_QUEUE_NAME=${RABBITMQ_QUEUE_NAME:-document-processing}
+      - RABBITMQ_EXCHANGE_NAME=${RABBITMQ_EXCHANGE_NAME:-documents}
+      - RABBITMQ_ROUTING_KEY=${RABBITMQ_ROUTING_KEY:-document.upload}
+      - RABBITMQ_DLX_EXCHANGE_NAME=${RABBITMQ_DLX_EXCHANGE_NAME:-documents-dlx}
+      - RABBITMQ_DLQ_NAME=${RABBITMQ_DLQ_NAME:-document-processing-dlq}
+      - RABBITMQ_DLQ_ROUTING_KEY=${RABBITMQ_DLQ_ROUTING_KEY:-document.failed}
+      - RABBITMQ_MAX_RETRIES=${RABBITMQ_MAX_RETRIES:-3}
+      - RABBITMQ_RETRY_DELAY_MS=${RABBITMQ_RETRY_DELAY_MS:-60000}
     depends_on:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - app-network
@@ -34,6 +50,7 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
       - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USER}
     ports:
       - '3306:3306'
     volumes:
@@ -62,9 +79,70 @@ services:
     networks:
       - app-network
 
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: ewsdb4-rabbitmq
+    restart: unless-stopped
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  worker-node:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ewsdb4-worker-node
+    restart: unless-stopped
+    command: node dist/worker/index.js
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - S3_DOCUMENT_PREFIX=${S3_DOCUMENT_PREFIX:-documents/}
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - RABBITMQ_QUEUE_NAME=document-processing
+      - RABBITMQ_EXCHANGE_NAME=documents
+      - RABBITMQ_ROUTING_KEY=document.upload
+      - RABBITMQ_DLX_EXCHANGE_NAME=documents-dlx
+      - RABBITMQ_DLQ_NAME=document-processing-dlq
+      - RABBITMQ_DLQ_ROUTING_KEY=document.failed
+      - RABBITMQ_MAX_RETRIES=${RABBITMQ_MAX_RETRIES:-3}
+      - RABBITMQ_RETRY_DELAY_MS=${RABBITMQ_RETRY_DELAY_MS:-60000}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app-network
+
 volumes:
   mysql-data:
   redis-data:
+  rabbitmq-data:
 
 networks:
   app-network:

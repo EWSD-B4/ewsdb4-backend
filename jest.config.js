@@ -16,6 +16,7 @@ module.exports = {
   moduleNameMapper: {
     '^@/config$': '<rootDir>/src/config/index.ts',
     '^@/config/(.*)$': '<rootDir>/src/config/$1',
+    '^@/constants/(.*)$': '<rootDir>/src/constants/$1',
     '^@/modules/(.*)$': '<rootDir>/src/modules/$1',
     '^@/shared/(.*)$': '<rootDir>/src/shared/$1',
     '^@/middleware/(.*)$': '<rootDir>/src/middleware/$1',
