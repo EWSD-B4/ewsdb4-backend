@@ -16,7 +16,9 @@ FROM node:25-alpine
 WORKDIR /app
 
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+    adduser -S nodejs -u 1001 && \
+    RUN mkdir -p logs &&\
+    chown nodejs:nodejs logs
 
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
