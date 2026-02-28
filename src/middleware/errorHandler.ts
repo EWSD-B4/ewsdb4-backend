@@ -48,7 +48,9 @@ export const errorHandler = (
   const requestId = req.requestId || 'unknown';
 
   if (isAppErrorLike(err)) {
-    logger.error(`${err.statusCode} - ${err.code} - ${err.message} - ${req.originalUrl} - ${req.method}`);
+    logger.error(
+      `${err.statusCode} - ${err.code} - ${err.message} - ${req.originalUrl} - ${req.method}`
+    );
 
     const payload: ApiErrorResponse = {
       code: err.code,

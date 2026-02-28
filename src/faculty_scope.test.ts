@@ -57,15 +57,18 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
     (cache.get as jest.Mock).mockResolvedValue('logged_in');
 
     (verifyToken as jest.Mock).mockImplementation((token: string): DecodedToken => {
-      if (token === 'token-admin') return { userId: '100', email: 'admin@example.com', role: 'admin' };
-      if (token === 'token-student') return { userId: '200', email: 'student@example.com', role: 'student' };
+      if (token === 'token-admin')
+        return { userId: '100', email: 'admin@example.com', role: 'admin' };
+      if (token === 'token-student')
+        return { userId: '200', email: 'student@example.com', role: 'student' };
       if (token === 'token-coordinator') {
         return { userId: '300', email: 'coord@example.com', role: 'coordinator' };
       }
       if (token === 'token-coordinator-no-faculty') {
         return { userId: '301', email: 'coord.nofac@example.com', role: 'coordinator' };
       }
-      if (token === 'token-manager') return { userId: '400', email: 'manager@example.com', role: 'manager' };
+      if (token === 'token-manager')
+        return { userId: '400', email: 'manager@example.com', role: 'manager' };
       throw new Error('Invalid token');
     });
 
@@ -145,7 +148,11 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
     });
     (prisma.contribution.findFirst as jest.Mock).mockImplementation(async ({ where }) => {
       if (where?.id === 404 || Number.isNaN(where?.id)) return null;
-      return { id: where?.id ?? 10, facultyId: where?.facultyId ?? 1, status: where?.status ?? 'selected' };
+      return {
+        id: where?.id ?? 10,
+        facultyId: where?.facultyId ?? 1,
+        status: where?.status ?? 'selected',
+      };
     });
   });
 
@@ -349,7 +356,9 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
     });
 
     it('blocks student access to admin faculties', async () => {
-      const res = await request(app).get('/api/v1/admin/faculties').set(authHeader('token-student'));
+      const res = await request(app)
+        .get('/api/v1/admin/faculties')
+        .set(authHeader('token-student'));
 
       expect(res.status).toBe(403);
       expect(res.body.code).toBe('FORBIDDEN');

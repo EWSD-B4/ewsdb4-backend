@@ -16,6 +16,11 @@ router.patch(
   validateZod(assignFacultySchema),
   adminController.assignUserFaculty
 );
-router.get('/faculties/:id/users', authenticate, authorize('admin'), adminController.listFacultyUsers);
+router.get(
+  '/faculties/:id/users',
+  authenticate,
+  authorize('admin'),
+  adminController.listFacultyUsers
+);
 
 export default router;

@@ -61,7 +61,9 @@ class DocumentController {
     }
 
     return res.json(
-      successResponse(document, req.requestId || 'unknown', { message: 'Document retrieved successfully' })
+      successResponse(document, req.requestId || 'unknown', {
+        message: 'Document retrieved successfully',
+      })
     );
   });
 
@@ -103,7 +105,11 @@ class DocumentController {
 
     await documentService.deleteDocument(id, userId);
 
-    res.json(successResponse({ success: true }, req.requestId || 'unknown', { message: 'Document deleted successfully' }));
+    res.json(
+      successResponse({ success: true }, req.requestId || 'unknown', {
+        message: 'Document deleted successfully',
+      })
+    );
   });
 
   getConvertedHtml = asyncHandler(async (req: Request, res: Response) => {

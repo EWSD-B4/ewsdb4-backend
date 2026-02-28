@@ -23,11 +23,10 @@ class ContributionController {
 
     const result = await contributionService.listCoordinatorContributions(facultyId, limit, offset);
     res.json(
-      successResponse(
-        { items: result.items, total: result.total },
-        req.requestId || 'unknown',
-        { message: 'Contributions retrieved', pagination: { limit, offset, total: result.total } }
-      )
+      successResponse({ items: result.items, total: result.total }, req.requestId || 'unknown', {
+        message: 'Contributions retrieved',
+        pagination: { limit, offset, total: result.total },
+      })
     );
   });
 
@@ -43,8 +42,15 @@ class ContributionController {
     }
 
     const contributionId = String(req.params.id);
-    const contribution = await contributionService.getCoordinatorContribution(facultyId, contributionId);
-    res.json(successResponse(contribution, req.requestId || 'unknown', { message: 'Contribution retrieved' }));
+    const contribution = await contributionService.getCoordinatorContribution(
+      facultyId,
+      contributionId
+    );
+    res.json(
+      successResponse(contribution, req.requestId || 'unknown', {
+        message: 'Contribution retrieved',
+      })
+    );
   });
 
   listGuestFaculties = asyncHandler(async (req: Request, res: Response) => {
@@ -53,7 +59,9 @@ class ContributionController {
       orderBy: { facultyName: 'asc' },
       select: { id: true, facultyCode: true, facultyName: true },
     });
-    res.json(successResponse(faculties, req.requestId || 'unknown', { message: 'Faculties retrieved' }));
+    res.json(
+      successResponse(faculties, req.requestId || 'unknown', { message: 'Faculties retrieved' })
+    );
   });
 
   listGuestSelected = asyncHandler(async (req: Request, res: Response) => {
@@ -74,18 +82,21 @@ class ContributionController {
 
     const result = await contributionService.listGuestSelected(facultyId, limit, offset);
     res.json(
-      successResponse(
-        { items: result.items, total: result.total },
-        req.requestId || 'unknown',
-        { message: 'Selected contributions retrieved', pagination: { limit, offset, total: result.total } }
-      )
+      successResponse({ items: result.items, total: result.total }, req.requestId || 'unknown', {
+        message: 'Selected contributions retrieved',
+        pagination: { limit, offset, total: result.total },
+      })
     );
   });
 
   getGuestSelected = asyncHandler(async (req: Request, res: Response) => {
     const contributionId = String(req.params.id);
     const contribution = await contributionService.getGuestSelected(contributionId);
-    res.json(successResponse(contribution, req.requestId || 'unknown', { message: 'Contribution retrieved' }));
+    res.json(
+      successResponse(contribution, req.requestId || 'unknown', {
+        message: 'Contribution retrieved',
+      })
+    );
   });
 }
 

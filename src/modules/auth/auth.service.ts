@@ -10,7 +10,10 @@ class AuthService {
   async register(data: RegisterDTO): Promise<AuthResponse> {
     const existingUser = await Try.execute(() =>
       userRepository.findByEmail(data.email)
-    ).orElseThrow('Failed to check existing user', new AppError('Failed to check existing user', 500, 'INTERNAL_ERROR'));
+    ).orElseThrow(
+      'Failed to check existing user',
+      new AppError('Failed to check existing user', 500, 'INTERNAL_ERROR')
+    );
 
     if (existingUser) {
       throw new AppError('User with this email already exists', 409);
@@ -25,7 +28,10 @@ class AuthService {
         password: hashedPassword,
         role_id: data.role_id ?? 1,
       })
-    ).orElseThrow('Failed to create user', new AppError('Failed to create user', 500, 'INTERNAL_ERROR'));
+    ).orElseThrow(
+      'Failed to create user',
+      new AppError('Failed to create user', 500, 'INTERNAL_ERROR')
+    );
 
     const token = generateToken({
       userId: user.id,

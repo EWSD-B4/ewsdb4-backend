@@ -47,7 +47,9 @@ class FacultyController {
   deactivateFaculty = asyncHandler(async (req: Request, res: Response) => {
     const facultyId = String(req.params.id);
     const faculty = await facultyService.deactivateFaculty(facultyId);
-    res.json(successResponse(faculty, req.requestId || 'unknown', { message: 'Faculty deactivated' }));
+    res.json(
+      successResponse(faculty, req.requestId || 'unknown', { message: 'Faculty deactivated' })
+    );
   });
 }
 

@@ -6,10 +6,13 @@ import { successResponse } from '@/utils/response';
 class AdminController {
   assignUserFaculty = asyncHandler(async (req: Request, res: Response) => {
     const body = req.body as { facultyId?: string | number | null };
-    const facultyId = body.facultyId === null || body.facultyId === undefined ? null : String(body.facultyId);
+    const facultyId =
+      body.facultyId === null || body.facultyId === undefined ? null : String(body.facultyId);
     const userId = String(req.params.id);
     const user = await adminService.assignUserFaculty(userId, facultyId);
-    res.json(successResponse(user, req.requestId || 'unknown', { message: 'User faculty updated' }));
+    res.json(
+      successResponse(user, req.requestId || 'unknown', { message: 'User faculty updated' })
+    );
   });
 
   listFacultyUsers = asyncHandler(async (req: Request, res: Response) => {

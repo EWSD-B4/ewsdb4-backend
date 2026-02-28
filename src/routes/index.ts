@@ -20,7 +20,12 @@ router.use('/reports', reportRoutes);
 router.get('/health', (_req, res) => {
   res
     .status(200)
-    .json(successResponse({ status: 'ok', timestamp: new Date().toISOString() }, _req.requestId || 'unknown'));
+    .json(
+      successResponse(
+        { status: 'ok', timestamp: new Date().toISOString() },
+        _req.requestId || 'unknown'
+      )
+    );
 });
 
 export default router;
