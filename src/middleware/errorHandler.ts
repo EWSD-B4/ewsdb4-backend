@@ -45,18 +45,15 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ): void => {
-  const requestId = req.requestId || 'unknown';
-
   if (isAppErrorLike(err)) {
     logger.error(
       `${err.statusCode} - ${err.code} - ${err.message} - ${req.originalUrl} - ${req.method}`
     );
 
     const payload: ApiErrorResponse = {
-      code: err.code,
+      success: false,
       message: err.message,
-      requestId,
-      ...(err.details ? { details: err.details } : {}),
+      ...(process.env.NODE_ENV === 'development' ? { stack: (err as Error).stack } : {}),
     };
 
     res.status(err.statusCode).json(payload);
@@ -66,10 +63,11 @@ export const errorHandler = (
   logger.error(`500 - ${err.message} - ${req.originalUrl} - ${req.method} - ${err.stack}`);
 
   const payload: ApiErrorResponse = {
-    code: 'INTERNAL_ERROR',
+    success: false,
     message: 'Internal server error',
-    requestId,
-    ...(process.env.NODE_ENV === 'development' ? { details: err.message } : {}),
+    ...(process.env.NODE_ENV === 'development'
+      ? { error: err.message, stack: err.stack }
+      : {}),
   };
 
   res.status(500).json(payload);
@@ -77,9 +75,8 @@ export const errorHandler = (
 
 export const notFoundHandler = (req: Request, res: Response) => {
   const payload: ApiErrorResponse = {
-    code: 'NOT_FOUND',
+    success: false,
     message: `Route ${req.originalUrl} not found`,
-    requestId: req.requestId || 'unknown',
   };
   res.status(404).json(payload);
 };

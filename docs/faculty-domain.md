@@ -1,424 +1,407 @@
-# Faculty Domain Guide (Docker + Prisma + Tests)
+# Faculty Domain Guide
 
-## Quick Start (Docker)
+## Base URL
 
-Start services:
+`http://localhost:3000/api/v1`
 
-```
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d mysql redis rabbitmq
-```
+## Runtime Response Contract
 
-Build + start app:
+### Success
 
-```
-docker compose -f docker-compose.yml -f docker-compose.dev.yml build app
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-build app
-```
-
-Prisma migration (dev):
-
-```
-DB_USER=root DB_PASSWORD=dev1234 \
-docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm app npx prisma migrate dev --name init
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {},
+  "timestamp": "2026-02-28T15:20:52.815Z"
+}
 ```
 
-Prisma client:
+### Error (development)
 
-```
-docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm app npx prisma generate
-```
-
-Base URL:
-
-```
-http://localhost:3000/api/v1
+```json
+{
+  "success": false,
+  "message": "You do not have permission to perform this action",
+  "stack": "Error: ..."
+}
 ```
 
-## Environment (Docker dev)
+Note: `stack` appears in development mode for debugging.
 
-Set these in `.env`:
+## Auth Quick Flow
 
-```
-DB_HOST=mysql
-DB_PORT=3306
-DB_USER=ews_user
-DB_PASSWORD=dev1234
-DB_NAME=ewsdb4
+### Login (Admin)
 
-REDIS_HOST=redis
-REDIS_PORT=6379
+Request:
 
-RABBITMQ_URL=amqp://rabbitmq:5672
-```
-
-## Seed Roles
-
-Run once:
-
-```
-docker compose -f docker-compose.yml -f docker-compose.dev.yml exec mysql \
-  mysql -u root -p -e "USE ewsdb4; \
-  INSERT INTO roles (role_name, role_code, requires_faculty, is_active, created_at, updated_at) VALUES \
-  ('Admin','admin',0,1,NOW(),NOW()), \
-  ('Student','student',1,1,NOW(),NOW()), \
-  ('Coordinator','coordinator',1,1,NOW(),NOW()), \
-  ('Manager','manager',0,1,NOW(),NOW()), \
-  ('Guest','guest',0,1,NOW(),NOW()), \
-  ('User','user',0,1,NOW(),NOW()), \
-  ('Moderator','moderator',0,1,NOW(),NOW()) \
-  ON DUPLICATE KEY UPDATE role_name=VALUES(role_name), requires_faculty=VALUES(requires_faculty), is_active=VALUES(is_active), updated_at=NOW();"
-```
-
-Verify roles:
-
-```
-docker compose -f docker-compose.yml -f docker-compose.dev.yml exec mysql \
-  mysql -u root -p -e "USE ewsdb4; SELECT id, role_code FROM roles;"
-```
-
-## Endpoints (Faculty Domain)
-
-Admin
-
-- `POST /admin/faculties`
-- `GET /admin/faculties?search=&isActive=&limit=&offset=`
-- `PATCH /admin/faculties/:id`
-- `PATCH /admin/faculties/:id/deactivate`
-- `PATCH /admin/users/:id/faculty`
-- `GET /admin/faculties/:id/users?roleCode=&limit=&offset=`
-
-Coordinator
-
-- `GET /coordinator/contributions`
-- `GET /coordinator/contributions/:id`
-
-Guest (public)
-
-- `GET /guest/faculties`
-- `GET /guest/faculties/:facultyId/contributions/selected`
-- `GET /guest/contributions/:id`
-
-Reports
-
-- `GET /reports/faculty/:facultyId/statistics?academicYearId=...`
-- `GET /reports/faculty/:facultyId/exceptions?academicYearId=...`
-
-## Curl Examples (Quick Reference)
-
-Login admin:
-
-```
+```bash
 curl -s -X POST http://localhost:3000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@example.com","password":"Admin123!"}'
 ```
 
-Create faculty:
+Response:
 
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "user": {
+      "id": 1,
+      "email": "admin@example.com",
+      "name": "Admin",
+      "role": "admin"
+    },
+    "token": "<jwt>"
+  },
+  "timestamp": "2026-02-28T15:21:50.123Z"
+}
 ```
-curl -s -X POST http://localhost:3000/api/v1/admin/faculties \
-  -H "Authorization: Bearer $TOKEN" \
+
+### Logout + Token Invalidation
+
+```bash
+curl -i -X POST http://localhost:3000/api/v1/auth/logout \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+Then same token on protected route:
+
+```bash
+curl -i http://localhost:3000/api/v1/auth/me \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+Expected: `401` with `success:false`.
+
+## Faculty Endpoints
+
+## 1) Admin - List Faculties
+
+`GET /admin/faculties?search=&isActive=&limit=&offset=`
+
+Request:
+
+```bash
+curl -i "http://localhost:3000/api/v1/admin/faculties" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Faculties retrieved",
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "facultyName": "Arts and Design",
+        "facultyCode": "ENG",
+        "isActive": true
+      }
+    ],
+    "total": 1
+  },
+  "timestamp": "2026-02-28T15:22:16.229Z"
+}
+```
+
+Validation error example (`limit=0&offset=-1`): `422`.
+
+## 2) Admin - Create Faculty
+
+`POST /admin/faculties`
+
+Request:
+
+```bash
+curl -i -X POST "http://localhost:3000/api/v1/admin/faculties" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -H "Content-Type: application/json" \
-  -d '{"code":"ENG","name":"Engineering"}'
+  -d '{"code":"ART","name":"Arts"}'
 ```
 
-List faculties:
+Success: `201`.
 
-```
-curl -s "http://localhost:3000/api/v1/admin/faculties?limit=20&offset=0" \
-  -H "Authorization: Bearer $TOKEN"
+Conflict example (duplicate code/name):
+
+```json
+{
+  "success": false,
+  "message": "Faculty code or name already exists",
+  "stack": "Error: ..."
+}
 ```
 
-Assign faculty to user:
+Status: `409`.
 
+## 3) Admin - Update Faculty
+
+`PATCH /admin/faculties/:id`
+
+Request:
+
+```bash
+curl -i -X PATCH "http://localhost:3000/api/v1/admin/faculties/1" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Arts and Design"}'
 ```
-curl -s -X PATCH http://localhost:3000/api/v1/admin/users/<USER_ID>/faculty \
-  -H "Authorization: Bearer $TOKEN" \
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Faculty updated",
+  "data": {
+    "id": 1,
+    "facultyName": "Arts and Design",
+    "facultyCode": "ENG",
+    "isActive": true
+  },
+  "timestamp": "2026-02-28T15:22:17.099Z"
+}
+```
+
+## 4) Admin - Deactivate Faculty
+
+`PATCH /admin/faculties/:id/deactivate`
+
+Request:
+
+```bash
+curl -i -X PATCH "http://localhost:3000/api/v1/admin/faculties/1/deactivate" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+Success: `200`, `isActive:false`.
+
+## 5) Admin - Assign User Faculty
+
+`PATCH /admin/users/:id/faculty`
+
+Request:
+
+```bash
+curl -i -X PATCH "http://localhost:3000/api/v1/admin/users/2/faculty" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"facultyId":1}'
 ```
 
-Guest list faculties:
+Success: `200`.
 
-```
-curl -s http://localhost:3000/api/v1/guest/faculties
+Common errors:
+- `400` invalid user id / invalid faculty / role requires faculty but null
+- `404` user not found
+- `409` cannot change faculty when user already has contributions
+
+## 6) Admin - List Users By Faculty
+
+`GET /admin/faculties/:id/users?roleCode=&limit=&offset=`
+
+Request:
+
+```bash
+curl -i "http://localhost:3000/api/v1/admin/faculties/1/users" \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
 ```
 
-Guest selected by faculty:
+Success response:
 
-```
-curl -s http://localhost:3000/api/v1/guest/faculties/1/contributions/selected
+```json
+{
+  "success": true,
+  "message": "Faculty users retrieved",
+  "data": {
+    "items": [],
+    "total": 0
+  },
+  "timestamp": "2026-02-28T15:22:31.507Z"
+}
 ```
 
-Coordinator list:
+## 7) Coordinator - Contributions
 
-```
-curl -s http://localhost:3000/api/v1/coordinator/contributions \
+`GET /coordinator/contributions`  
+`GET /coordinator/contributions/:id`
+
+Request:
+
+```bash
+curl -i "http://localhost:3000/api/v1/coordinator/contributions" \
   -H "Authorization: Bearer <COORD_TOKEN>"
 ```
 
-Reports:
+Success response:
 
-```
-curl -s "http://localhost:3000/api/v1/reports/faculty/1/statistics?academicYearId=2024" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-## Seed Data (Optional)
-
-Create a coordinator:
-
-```
-curl -s -X POST http://localhost:3000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"coord@example.com","name":"Coordinator","password":"Coord123!","role_id":3}'
+```json
+{
+  "success": true,
+  "message": "Contributions retrieved",
+  "data": {
+    "items": [],
+    "total": 0
+  },
+  "timestamp": "2026-02-28T15:40:01.043Z"
+}
 ```
 
-Create a student:
+If token missing/invalid: `401`.
 
-```
-curl -s -X POST http://localhost:3000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"student@example.com","name":"Student","password":"Student123!","role_id":2}'
-```
+## 8) Reports - Faculty Statistics/Exceptions
 
-Assign student to faculty:
+`GET /reports/faculty/:facultyId/statistics?academicYearId=2024`  
+`GET /reports/faculty/:facultyId/exceptions?academicYearId=2024`
 
-```
-curl -s -X PATCH http://localhost:3000/api/v1/admin/users/<STUDENT_ID>/faculty \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"facultyId":1}'
-```
+Requests:
 
-## Troubleshooting
+```bash
+curl -i "http://localhost:3000/api/v1/reports/faculty/1/statistics?academicYearId=2024" \
+  -H "Authorization: Bearer <COORD_TOKEN>"
 
-- `401 UNAUTHORIZED` on protected routes:
-  - Ensure `Authorization: Bearer <token>` is set.
-  - Ensure Redis is running (login state is stored in Redis).
-  - Re-login if Redis was restarted.
-
-- `409 CONFLICT` on create:
-  - Use unique `facultyCode` and `facultyName`.
-
-- `422 VALIDATION_ERROR`:
-  - Missing required fields or wrong types.
-
-- Empty guest lists:
-  - Ensure faculty is `isActive=true`.
-  - Ensure contributions exist and are marked `selected`.
-
-## Role-Specific Quick Notes
-
-Backend Developers
-
-- Use Prisma migrations for schema changes (`migrate dev` in local).
-- Keep admin/guest/coordinator role behaviors consistent with the access matrix.
-- Never return `password_hash` in responses.
-
-DevOps / DBA
-
-- Use `migrate deploy` in staging/production.
-- Keep secrets out of `.env` in production (use CI/CD secrets or secret manager).
-- Redis restart invalidates tokens; plan rolling restarts.
-
-Testers (QA)
-
-- Validate admin CRUD + failure cases.
-- Validate student/coordinator cannot access admin endpoints (403).
-- Validate guest endpoints are public and filtered by status.
-
-Frontend Developers
-
-- Use response envelope `{ data, meta, requestId }` consistently.
-- On 401/403, redirect to login or show “no permission”.
-- Guest lists may be empty; handle empty states gracefully.
-
-## Roles and Access Matrix
-
-Admin
-
-- Full access to all admin endpoints.
-- Can assign faculty to users.
-
-Coordinator
-
-- Can access coordinator and report endpoints for their own faculty only.
-
-Student
-
-- Cannot access admin, coordinator, or report endpoints.
-- Guest endpoints remain public.
-
-Guest
-
-- Public access only to guest endpoints.
-
-Manager
-
-- Can access report endpoints across faculties.
-
-## Expected Error Codes
-
-Common
-
-- `401 UNAUTHORIZED`: missing/invalid token or logged out.
-- `403 FORBIDDEN`: authenticated but role not allowed.
-
-Admin faculties
-
-- `409 CONFLICT`: duplicate `facultyCode` or `facultyName`.
-- `400 BAD_REQUEST`: invalid faculty id format.
-- `404 NOT_FOUND`: faculty id not found.
-- `422 VALIDATION_ERROR`: missing or invalid body fields.
-
-Admin user assignment
-
-- `400 BAD_REQUEST`: invalid faculty id or role requires faculty but null.
-- `409 CONFLICT`: user has contributions and faculty change is blocked.
-- `404 NOT_FOUND`: user not found or faculty not found.
-
-Guest
-
-- `400 VALIDATION_ERROR`: invalid faculty id format.
-- `404 NOT_FOUND`: contribution not found for selected-only endpoint.
-
-Reports
-
-- `400 VALIDATION_ERROR`: missing `academicYearId` or invalid ids.
-
-## Admin Test Flow (Success + Failure)
-
-1. Login admin:
-
-```
-curl -s -X POST http://localhost:3000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","password":"Admin123!"}'
+curl -i "http://localhost:3000/api/v1/reports/faculty/1/exceptions?academicYearId=2024" \
+  -H "Authorization: Bearer <COORD_TOKEN>"
 ```
 
-Set token:
+Success response (statistics):
 
-```
-TOKEN=<admin_token>
-```
-
-2. Create faculty:
-
-```
-curl -s -X POST http://localhost:3000/api/v1/admin/faculties \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"code":"ENG","name":"Engineering"}'
-```
-
-Expected: `201`
-
-3. Duplicate create:
-   Expected: `409 CONFLICT`
-
-4. Update valid:
-
-```
-curl -s -X PATCH http://localhost:3000/api/v1/admin/faculties/1 \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Engineering and Tech"}'
+```json
+{
+  "success": true,
+  "message": "Faculty statistics",
+  "data": {
+    "totalContributions": 0,
+    "selectedContributions": 0,
+    "distinctContributors": 0
+  },
+  "timestamp": "2026-02-28T15:40:01.247Z"
+}
 ```
 
-Expected: `200`
+Success response (exceptions):
 
-5. Invalid id:
-
-```
-curl -i -X PATCH http://localhost:3000/api/v1/admin/faculties/abc \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Invalid"}'
-```
-
-Expected: `400 BAD_REQUEST`
-
-6. Deactivate:
-
-```
-curl -s -X PATCH http://localhost:3000/api/v1/admin/faculties/1/deactivate \
-  -H "Authorization: Bearer $TOKEN"
+```json
+{
+  "success": true,
+  "message": "Faculty exceptions",
+  "data": {
+    "missingComment": [],
+    "overdue": []
+  },
+  "timestamp": "2026-02-28T15:40:01.423Z"
+}
 ```
 
-Expected: `200`
+Validation errors:
+- invalid `facultyId` -> `400`
+- missing `academicYearId` -> `400`
 
-## Student Test Flow
+## 9) Guest Endpoints (Public)
 
-Login student:
+`GET /guest/faculties`  
+`GET /guest/faculties/:facultyId/contributions/selected`  
+`GET /guest/contributions/:id`
 
-```
-curl -s -X POST http://localhost:3000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"student@example.com","password":"Student123!"}'
-```
+Requests:
 
-Student is blocked from admin/coordinator/reports:
-
-```
-curl -i http://localhost:3000/api/v1/admin/faculties \
-  -H "Authorization: Bearer <student_token>"
-```
-
-Expected: `403 FORBIDDEN`
-
-## Coordinator Test Flow
-
-Register coordinator:
-
-```
-curl -s -X POST http://localhost:3000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"coord@example.com","name":"Coordinator","password":"Coord123!","role_id":3}'
+```bash
+curl -i "http://localhost:3000/api/v1/guest/faculties"
+curl -i "http://localhost:3000/api/v1/guest/faculties/1/contributions/selected"
+curl -i "http://localhost:3000/api/v1/guest/contributions/1"
 ```
 
-Assign faculty (admin):
+Success response (list faculties):
 
-```
-curl -s -X PATCH http://localhost:3000/api/v1/admin/users/<COORD_ID>/faculty \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"facultyId":1}'
-```
-
-Coordinator list:
-
-```
-curl -s http://localhost:3000/api/v1/coordinator/contributions \
-  -H "Authorization: Bearer <coord_token>"
+```json
+{
+  "success": true,
+  "message": "Faculties retrieved",
+  "data": [
+    { "id": 1, "facultyCode": "ENG", "facultyName": "Arts and Design" }
+  ],
+  "timestamp": "2026-02-28T15:23:23.510Z"
+}
 ```
 
-Expected: `200` (empty if no contributions)
+Not found example (`/guest/contributions/1` when missing):
 
-## Guest Test Flow
-
-Guest list faculties:
-
-```
-curl -s http://localhost:3000/api/v1/guest/faculties
-```
-
-Guest selected by faculty:
-
-```
-curl -s http://localhost:3000/api/v1/guest/faculties/1/contributions/selected
+```json
+{
+  "success": false,
+  "message": "Contribution not found",
+  "stack": "Error: ..."
+}
 ```
 
-## Notes
+Invalid id example (`/guest/contributions/abc`):
 
-- Guest endpoints are public in this implementation.
-- Invalid faculty id now returns `400 BAD_REQUEST`.
-- Admin list/users does not return password hashes.
+```json
+{
+  "success": false,
+  "message": "Invalid contribution id",
+  "stack": "Error: ..."
+}
+```
 
-## Known Issues / Expected Errors
+Status: `400`.
 
-- Creating a faculty with an existing `facultyCode` or `facultyName` returns `409 CONFLICT`.
-- Registering an already-existing user returns `409` (or `INTERNAL_ERROR` if the client retries without handling it).
-- Guest selected list may return empty even for valid faculties when no contributions are `selected`.
-- Reports endpoints return empty counts if no contributions or academic year data exist.
-- If Redis is restarted, login tokens become invalid and users must login again.
+## Role Access Matrix
+
+- `admin`: full admin faculty/user assignment endpoints
+- `coordinator`: coordinator endpoints + reports (faculty scoped)
+- `student`: blocked from admin/coordinator/reports (`403`)
+- `guest`: guest endpoints only (public)
+- `manager`: reports endpoints allowed
+
+## Known Testing Pitfalls
+
+1. `Route /api/v1/admin/users//faculty not found`
+- Cause: empty `USER_ID` variable in script.
+
+2. `401 Authentication required. Please provide a valid token.`
+- Cause: empty/invalid token parsing.
+
+3. Coordinator tests fail with 401
+- Cause: coordinator user missing in DB.
+
+4. Manager report tests return 401
+- Cause: manager user/token not seeded or login failed.
+
+5. `POST /api/v1/users` returns 404
+- Current runtime does not expose this endpoint.
+- Create test users via existing auth/admin flows or direct DB seed for local QA.
+
+## Tested Status (Current Branch)
+
+- `GET /health` -> tested, `200`
+- `POST /auth/login` -> tested, `200`
+- `POST /auth/logout` + token reuse -> tested, `200` then `401`
+- `GET /admin/faculties` -> tested, `200`
+- `POST /admin/faculties` duplicate -> tested, `409`
+- `PATCH /admin/faculties/:id` -> tested, `200`
+- `PATCH /admin/faculties/:id/deactivate` -> tested, `200`
+- `PATCH /admin/users/:id/faculty` -> tested, `200`
+- `GET /admin/faculties/:id/users` with filters -> tested, `200`
+- `GET /coordinator/contributions` -> tested, `200`
+- `GET /coordinator/contributions/:id` -> tested `404` path
+- `GET /reports/faculty/:id/statistics` -> tested, `200`
+- `GET /reports/faculty/:id/exceptions` -> tested, `200`
+- `GET /guest/faculties` -> tested, `200`
+- `GET /guest/faculties/:id/contributions/selected` -> tested, `200`
+- `GET /guest/contributions/:id` -> tested `404`
+- `GET /guest/contributions/abc` -> tested `400` (bug fix verified)
+
+## Reliable Variable Guards (Bash)
+
+```bash
+[[ -z "$BASE" ]] && echo "BASE missing" && exit 1
+[[ -z "$ADMIN_TOKEN" ]] && echo "ADMIN_TOKEN missing" && exit 1
+[[ -z "$COORD_TOKEN" ]] && echo "COORD_TOKEN missing" && exit 1
+[[ -z "$STUDENT_ID" ]] && echo "STUDENT_ID missing" && exit 1
+```

@@ -36,7 +36,7 @@ export const authenticate = asyncHandler(
     req.user = {
       id: decoded.userId,
       email: decoded.email,
-      role: decoded.role,
+      role: String(decoded.role).toLowerCase(),
     };
 
     next();

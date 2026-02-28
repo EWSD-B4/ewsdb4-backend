@@ -169,7 +169,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .get('/api/v1/admin/faculties?limit=0&offset=-1')
         .set(authHeader('token-admin'));
       expect(res.status).toBe(422);
-      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.success).toBe(false);
     });
 
     it('allows admin to create faculty', async () => {
@@ -191,7 +191,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .send({ code: 'ENG', name: 'Engineering' });
 
       expect(res.status).toBe(409);
-      expect(res.body.code).toBe('CONFLICT');
+      expect(res.body.success).toBe(false);
     });
 
     it('returns validation error for invalid faculty create payload', async () => {
@@ -201,7 +201,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .send({ code: 'A' });
 
       expect(res.status).toBe(422);
-      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.success).toBe(false);
     });
 
     it('allows admin to update faculty', async () => {
@@ -223,7 +223,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .send({ code: 'ENG' });
 
       expect(res.status).toBe(409);
-      expect(res.body.code).toBe('CONFLICT');
+      expect(res.body.success).toBe(false);
     });
 
     it('returns 404 when update faculty id not found', async () => {
@@ -233,7 +233,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .send({ name: 'Unknown' });
 
       expect(res.status).toBe(404);
-      expect(res.body.code).toBe('NOT_FOUND');
+      expect(res.body.success).toBe(false);
     });
 
     it('allows admin to deactivate faculty', async () => {
@@ -251,7 +251,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .set(authHeader('token-admin'));
 
       expect(res.status).toBe(404);
-      expect(res.body.code).toBe('NOT_FOUND');
+      expect(res.body.success).toBe(false);
     });
 
     it('allows admin to assign faculty to a user', async () => {
@@ -271,7 +271,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .send({ facultyId: null });
 
       expect(res.status).toBe(400);
-      expect(res.body.code).toBe('BAD_REQUEST');
+      expect(res.body.success).toBe(false);
     });
 
     it('returns 400 when assigning inactive faculty', async () => {
@@ -281,7 +281,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .send({ facultyId: 3 });
 
       expect(res.status).toBe(400);
-      expect(res.body.code).toBe('BAD_REQUEST');
+      expect(res.body.success).toBe(false);
     });
 
     it('returns 400 for invalid user id in assign faculty', async () => {
@@ -291,7 +291,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .send({ facultyId: 1 });
 
       expect(res.status).toBe(400);
-      expect(res.body.code).toBe('BAD_REQUEST');
+      expect(res.body.success).toBe(false);
     });
 
     it('returns 404 when assigning faculty to unknown user', async () => {
@@ -301,7 +301,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .send({ facultyId: 1 });
 
       expect(res.status).toBe(404);
-      expect(res.body.code).toBe('NOT_FOUND');
+      expect(res.body.success).toBe(false);
     });
 
     it('returns 409 when changing faculty for user with contributions', async () => {
@@ -317,7 +317,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .send({ facultyId: 2 });
 
       expect(res.status).toBe(409);
-      expect(res.body.code).toBe('CONFLICT');
+      expect(res.body.success).toBe(false);
     });
 
     it('allows admin to list users by faculty', async () => {
@@ -336,7 +336,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .set(authHeader('token-admin'));
 
       expect(res.status).toBe(400);
-      expect(res.body.code).toBe('BAD_REQUEST');
+      expect(res.body.success).toBe(false);
     });
 
     it('returns 404 for unknown faculty when listing users by faculty', async () => {
@@ -345,14 +345,14 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .set(authHeader('token-admin'));
 
       expect(res.status).toBe(404);
-      expect(res.body.code).toBe('NOT_FOUND');
+      expect(res.body.success).toBe(false);
     });
 
     it('blocks unauthenticated access to admin faculties', async () => {
       const res = await request(app).get('/api/v1/admin/faculties');
 
       expect(res.status).toBe(401);
-      expect(res.body.code).toBe('UNAUTHORIZED');
+      expect(res.body.success).toBe(false);
     });
 
     it('blocks student access to admin faculties', async () => {
@@ -361,7 +361,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .set(authHeader('token-student'));
 
       expect(res.status).toBe(403);
-      expect(res.body.code).toBe('FORBIDDEN');
+      expect(res.body.success).toBe(false);
     });
   });
 
@@ -372,7 +372,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .set(authHeader('token-student'));
 
       expect(res.status).toBe(403);
-      expect(res.body.code).toBe('FORBIDDEN');
+      expect(res.body.success).toBe(false);
     });
 
     it('blocks student from faculty reports endpoint', async () => {
@@ -381,7 +381,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .set(authHeader('token-student'));
 
       expect(res.status).toBe(403);
-      expect(res.body.code).toBe('FORBIDDEN');
+      expect(res.body.success).toBe(false);
     });
 
     it('allows coordinator to list own faculty contributions', async () => {
@@ -410,7 +410,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .set(authHeader('token-coordinator'));
 
       expect(res.status).toBe(404);
-      expect(res.body.code).toBe('NOT_FOUND');
+      expect(res.body.success).toBe(false);
     });
 
     it('blocks coordinator without faculty assignment', async () => {
@@ -419,7 +419,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .set(authHeader('token-coordinator-no-faculty'));
 
       expect(res.status).toBe(403);
-      expect(res.body.code).toBe('FORBIDDEN');
+      expect(res.body.success).toBe(false);
     });
 
     it('uses coordinator faculty scope for reports (ignores route facultyId)', async () => {
@@ -460,7 +460,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .set(authHeader('token-manager'));
 
       expect(res.status).toBe(400);
-      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.success).toBe(false);
     });
 
     it('returns 400 when manager provides invalid faculty id for reports', async () => {
@@ -469,14 +469,14 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         .set(authHeader('token-manager'));
 
       expect(res.status).toBe(400);
-      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.success).toBe(false);
     });
 
     it('returns 401 for coordinator endpoint without token', async () => {
       const res = await request(app).get('/api/v1/coordinator/contributions');
 
       expect(res.status).toBe(401);
-      expect(res.body.code).toBe('UNAUTHORIZED');
+      expect(res.body.success).toBe(false);
     });
   });
 
@@ -500,7 +500,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
       const res = await request(app).get('/api/v1/guest/faculties/abc/contributions/selected');
 
       expect(res.status).toBe(400);
-      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.success).toBe(false);
     });
 
     it('allows guest to get selected contribution detail', async () => {
@@ -510,11 +510,20 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
       expect(res.body.data).toHaveProperty('id', 10);
     });
 
+    it('returns 400 for invalid guest contribution id', async () => {
+      const res = await request(app).get('/api/v1/guest/contributions/abc');
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('Invalid contribution id');
+    });
+
     it('returns 404 when selected contribution detail is missing', async () => {
       const res = await request(app).get('/api/v1/guest/contributions/404');
 
       expect(res.status).toBe(404);
-      expect(res.body.code).toBe('NOT_FOUND');
+      expect(res.body.success).toBe(false);
     });
   });
 });
+

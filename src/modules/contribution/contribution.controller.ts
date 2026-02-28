@@ -9,9 +9,11 @@ class ContributionController {
     const facultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : undefined;
     if (!facultyId) {
       res.status(403).json({
-        code: 'FORBIDDEN',
+        success: false,
         message: 'Faculty assignment required',
-        requestId: req.requestId || 'unknown',
+        ...(process.env.NODE_ENV === 'development'
+          ? { stack: new Error('Faculty assignment required').stack }
+          : {}),
       });
       return;
     }
@@ -34,9 +36,11 @@ class ContributionController {
     const facultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : undefined;
     if (!facultyId) {
       res.status(403).json({
-        code: 'FORBIDDEN',
+        success: false,
         message: 'Faculty assignment required',
-        requestId: req.requestId || 'unknown',
+        ...(process.env.NODE_ENV === 'development'
+          ? { stack: new Error('Faculty assignment required').stack }
+          : {}),
       });
       return;
     }
@@ -73,9 +77,11 @@ class ContributionController {
     const facultyId = parseInt(String(req.params.facultyId), 10);
     if (!Number.isFinite(facultyId)) {
       res.status(400).json({
-        code: 'VALIDATION_ERROR',
+        success: false,
         message: 'Invalid facultyId',
-        requestId: req.requestId || 'unknown',
+        ...(process.env.NODE_ENV === 'development'
+          ? { stack: new Error('Invalid facultyId').stack }
+          : {}),
       });
       return;
     }
