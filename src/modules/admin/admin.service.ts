@@ -1,5 +1,6 @@
 import prisma from '@/shared/database/prisma';
 import { BadRequestError, ConflictError, NotFoundError } from '@/shared/errors/AppError';
+import { Prisma } from '@prisma/client';
 
 const rolesRequiringFaculty = new Set(['student', 'coordinator']);
 
@@ -75,14 +76,14 @@ class AdminService {
       throw new NotFoundError('Faculty not found');
     }
 
-    const where: any = { facultyId: facultyIdNum };
+    const where: Prisma.UserWhereInput = { facultyId: facultyIdNum };
     if (roleCode) {
       where.role = { roleCode };
     }
 
     const [items, total] = await Promise.all([
       prisma.user.findMany({
-        where: { ...where, facultyId: facultyIdNum },
+        where,
         skip: offset,
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -99,7 +100,7 @@ class AdminService {
           lastLogin: true,
         },
       }),
-      prisma.user.count({ where: { ...where, facultyId: facultyIdNum } }),
+      prisma.user.count({ where }),
     ]);
 
     return { items, total, limit, offset };

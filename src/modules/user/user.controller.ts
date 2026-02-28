@@ -3,6 +3,7 @@ import userService from './user.service';
 import { asyncHandler } from '@/middleware/asyncHandler';
 import { successResponse } from '@/utils/response';
 import { AppError } from '@/middleware/errorHandler';
+import { CreateUserDTO, UpdateUserDTO } from './user.types';
 
 class UserController {
   getAllUsers = asyncHandler(async (_req: Request, res: Response) => {
@@ -24,7 +25,7 @@ class UserController {
   });
 
   createUser = asyncHandler(async (req: Request, res: Response) => {
-    const user = await userService.createUser(req.body);
+    const user = await userService.createUser(req.body as CreateUserDTO);
     res
       .status(201)
       .json(successResponse(user, req.requestId || 'unknown', { message: 'User created successfully' }));
@@ -32,7 +33,7 @@ class UserController {
 
   updateUser = asyncHandler(async (req: Request, res: Response) => {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const user = await userService.updateUser(id, req.body);
+    const user = await userService.updateUser(id, req.body as UpdateUserDTO);
     res
       .status(200)
       .json(successResponse(user, req.requestId || 'unknown', { message: 'User updated successfully' }));

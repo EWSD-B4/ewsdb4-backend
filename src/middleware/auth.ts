@@ -5,7 +5,6 @@ import { asyncHandler } from './asyncHandler';
 import cache from '@/shared/cache/redis';
 
 export const authenticate = asyncHandler(
-  // eslint-disable-next-line @typescript-eslint/require-await
   async (req: Request, _res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
 

@@ -24,15 +24,27 @@ export class AppError extends Error {
   }
 }
 
-const isAppErrorLike = (err: any): err is AppError =>
-  err && typeof err.statusCode === 'number' && typeof err.code === 'string';
+const isAppErrorLike = (
+  err: unknown
+): err is Pick<AppError, 'statusCode' | 'code' | 'message' | 'details'> => {
+  if (typeof err !== 'object' || err === null) {
+    return false;
+  }
+
+  const maybeError = err as Record<string, unknown>;
+  return (
+    typeof maybeError.statusCode === 'number' &&
+    typeof maybeError.code === 'string' &&
+    typeof maybeError.message === 'string'
+  );
+};
 
 export const errorHandler = (
   err: Error | AppError,
   req: Request,
   res: Response,
   _next: NextFunction
-) => {
+): void => {
   const requestId = req.requestId || 'unknown';
 
   if (isAppErrorLike(err)) {
@@ -45,7 +57,8 @@ export const errorHandler = (
       ...(err.details ? { details: err.details } : {}),
     };
 
-    return res.status(err.statusCode).json(payload);
+    res.status(err.statusCode).json(payload);
+    return;
   }
 
   logger.error(`500 - ${err.message} - ${req.originalUrl} - ${req.method} - ${err.stack}`);
@@ -57,7 +70,7 @@ export const errorHandler = (
     ...(process.env.NODE_ENV === 'development' ? { details: err.message } : {}),
   };
 
-  return res.status(500).json(payload);
+  res.status(500).json(payload);
 };
 
 export const notFoundHandler = (req: Request, res: Response) => {

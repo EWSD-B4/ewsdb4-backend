@@ -1,6 +1,7 @@
 import prisma from '@/shared/database/prisma';
 import { BadRequestError, ConflictError, NotFoundError } from '@/shared/errors/AppError';
 import { FacultyListQuery } from './faculty.types';
+import { Prisma } from '@prisma/client';
 
 class FacultyService {
   private parseFacultyId(id: string): number {
@@ -33,7 +34,7 @@ class FacultyService {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
 
-    const where: any = {};
+    const where: Prisma.FacultyWhereInput = {};
     if (query.search) {
       where.OR = [
         { facultyCode: { contains: query.search } },

@@ -53,9 +53,9 @@ export class ConflictError extends AppError {
 }
 
 export class ValidationError extends AppError {
-  public readonly errors: any;
+  public readonly errors: unknown;
 
-  constructor(message: string = 'Validation failed', errors?: any) {
+  constructor(message: string = 'Validation failed', errors?: unknown) {
     super(message, 422, 'VALIDATION_ERROR', errors);
     this.errors = errors;
   }

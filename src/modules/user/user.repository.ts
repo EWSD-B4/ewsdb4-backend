@@ -1,4 +1,4 @@
-import { RowDataPacket } from 'mysql2';
+import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import database from '@/shared/database/mysql';
 import { User, CreateUserDTO, UpdateUserDTO } from './user.types';
 
@@ -64,7 +64,7 @@ class UserRepository {
   async create(userData: CreateUserDTO): Promise<User> {
     const query = `INSERT INTO ${this.tableName} (email, first_name, last_name, password_hash, role_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())`;
     const firstName = userData.name?.trim() || null;
-    const result = await database.query<any>(query, [
+    const result = await database.query<ResultSetHeader>(query, [
       userData.email,
       firstName,
       null,
@@ -72,7 +72,7 @@ class UserRepository {
       userData.role_id,
     ]);
 
-    const newUser = await this.findById(result.insertId);
+    const newUser = await this.findById(String(result.insertId));
     if (!newUser) {
       throw new Error('Failed to create user');
     }
@@ -105,7 +105,7 @@ class UserRepository {
 
   async delete(id: string): Promise<boolean> {
     const query = `DELETE FROM ${this.tableName} WHERE id = ?`;
-    const result = await database.query<any>(query, [id]);
+    const result = await database.query<ResultSetHeader>(query, [id]);
     return result.affectedRows > 0;
   }
 }

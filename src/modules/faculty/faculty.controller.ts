@@ -7,7 +7,7 @@ import { ValidationError } from '@/shared/errors/AppError';
 
 class FacultyController {
   createFaculty = asyncHandler(async (req: Request, res: Response) => {
-    const faculty = await facultyService.createFaculty(req.body);
+    const faculty = await facultyService.createFaculty(req.body as { code: string; name: string });
     res
       .status(201)
       .json(successResponse(faculty, req.requestId || 'unknown', { message: 'Faculty created' }));
@@ -37,7 +37,10 @@ class FacultyController {
 
   updateFaculty = asyncHandler(async (req: Request, res: Response) => {
     const facultyId = String(req.params.id);
-    const faculty = await facultyService.updateFaculty(facultyId, req.body);
+    const faculty = await facultyService.updateFaculty(
+      facultyId,
+      req.body as { code?: string; name?: string; isActive?: boolean }
+    );
     res.json(successResponse(faculty, req.requestId || 'unknown', { message: 'Faculty updated' }));
   });
 

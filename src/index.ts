@@ -16,22 +16,24 @@ const startServer = async () => {
       logger.info(`API available at http://localhost:${config.port}${config.apiPrefix}`);
     });
 
-    const gracefulShutdown = async (signal: string) => {
+    const gracefulShutdown = (signal: string) => {
       logger.info(`${signal} received. Starting graceful shutdown...`);
 
-      server.close(async () => {
-        logger.info('HTTP server closed');
+      server.close(() => {
+        void (async () => {
+          logger.info('HTTP server closed');
 
-        try {
-          await database.disconnect();
-          await cache.disconnect();
-          await prisma.$disconnect();
-          logger.info('All connections closed. Exiting process.');
-          process.exit(0);
-        } catch (error) {
-          logger.error('Error during shutdown:', error);
-          process.exit(1);
-        }
+          try {
+            await database.disconnect();
+            await cache.disconnect();
+            await prisma.$disconnect();
+            logger.info('All connections closed. Exiting process.');
+            process.exit(0);
+          } catch (error) {
+            logger.error('Error during shutdown:', error);
+            process.exit(1);
+          }
+        })();
       });
 
       setTimeout(() => {
