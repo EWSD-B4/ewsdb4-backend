@@ -7,9 +7,10 @@ describe('App', () => {
       const response = await request(app).get('/api/v1/health');
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('message', 'API is healthy');
-      expect(response.body).toHaveProperty('timestamp');
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('status', 'ok');
+      expect(response.body.data).toHaveProperty('timestamp');
+      expect(response.body).toHaveProperty('requestId');
     });
   });
 
@@ -18,8 +19,9 @@ describe('App', () => {
       const response = await request(app).get('/api/v1/non-existent-route');
 
       expect(response.status).toBe(404);
-      expect(response.body).toHaveProperty('success', false);
+      expect(response.body).toHaveProperty('code', 'NOT_FOUND');
       expect(response.body.message).toContain('not found');
+      expect(response.body).toHaveProperty('requestId');
     });
   });
 });

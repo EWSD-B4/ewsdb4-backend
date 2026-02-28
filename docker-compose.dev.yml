@@ -1,0 +1,5 @@
+services:
+  app:
+    environment:
+      - NODE_ENV=development
+      - PRISMA_MIGRATE_ON_START=0

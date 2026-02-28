@@ -1,0 +1,92 @@
+import { Request, Response } from 'express';
+import { asyncHandler } from '@/middleware/asyncHandler';
+import contributionService from './contribution.service';
+import { successResponse } from '@/utils/response';
+import prisma from '@/shared/database/prisma';
+
+class ContributionController {
+  listCoordinator = asyncHandler(async (req: Request, res: Response) => {
+    const facultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : undefined;
+    if (!facultyId) {
+      res.status(403).json({
+        code: 'FORBIDDEN',
+        message: 'Faculty assignment required',
+        requestId: req.requestId || 'unknown',
+      });
+      return;
+    }
+
+    const limitRaw = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+    const offsetRaw = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 100 ? limitRaw : 20;
+    const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
+
+    const result = await contributionService.listCoordinatorContributions(facultyId, limit, offset);
+    res.json(
+      successResponse(
+        { items: result.items, total: result.total },
+        req.requestId || 'unknown',
+        { message: 'Contributions retrieved', pagination: { limit, offset, total: result.total } }
+      )
+    );
+  });
+
+  getCoordinator = asyncHandler(async (req: Request, res: Response) => {
+    const facultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : undefined;
+    if (!facultyId) {
+      res.status(403).json({
+        code: 'FORBIDDEN',
+        message: 'Faculty assignment required',
+        requestId: req.requestId || 'unknown',
+      });
+      return;
+    }
+
+    const contributionId = String(req.params.id);
+    const contribution = await contributionService.getCoordinatorContribution(facultyId, contributionId);
+    res.json(successResponse(contribution, req.requestId || 'unknown', { message: 'Contribution retrieved' }));
+  });
+
+  listGuestFaculties = asyncHandler(async (req: Request, res: Response) => {
+    const faculties = await prisma.faculty.findMany({
+      where: { isActive: true },
+      orderBy: { facultyName: 'asc' },
+      select: { id: true, facultyCode: true, facultyName: true },
+    });
+    res.json(successResponse(faculties, req.requestId || 'unknown', { message: 'Faculties retrieved' }));
+  });
+
+  listGuestSelected = asyncHandler(async (req: Request, res: Response) => {
+    const limitRaw = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+    const offsetRaw = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 100 ? limitRaw : 20;
+    const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
+
+    const facultyId = parseInt(String(req.params.facultyId), 10);
+    if (!Number.isFinite(facultyId)) {
+      res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid facultyId',
+        requestId: req.requestId || 'unknown',
+      });
+      return;
+    }
+
+    const result = await contributionService.listGuestSelected(facultyId, limit, offset);
+    res.json(
+      successResponse(
+        { items: result.items, total: result.total },
+        req.requestId || 'unknown',
+        { message: 'Selected contributions retrieved', pagination: { limit, offset, total: result.total } }
+      )
+    );
+  });
+
+  getGuestSelected = asyncHandler(async (req: Request, res: Response) => {
+    const contributionId = String(req.params.id);
+    const contribution = await contributionService.getGuestSelected(contributionId);
+    res.json(successResponse(contribution, req.requestId || 'unknown', { message: 'Contribution retrieved' }));
+  });
+}
+
+export default new ContributionController();

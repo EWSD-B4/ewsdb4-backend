@@ -10,20 +10,20 @@ export const authenticate = asyncHandler(
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new AppError('Authentication required. Please provide a valid token.', 401);
+      throw new AppError('Authentication required. Please provide a valid token.', 401, 'UNAUTHORIZED');
     }
 
     const token = authHeader.split(' ')[1];
 
     if (!token) {
-      throw new AppError('Authentication required. Please provide a valid token.', 401);
+      throw new AppError('Authentication required. Please provide a valid token.', 401, 'UNAUTHORIZED');
     }
 
     const decoded = verifyToken(token);
 
     const loginState = await cache.get(`auth:state:user:${decoded.userId}`);
     if (loginState !== 'logged_in') {
-      throw new AppError('Authentication required. Please login again.', 401);
+      throw new AppError('Authentication required. Please login again.', 401, 'UNAUTHORIZED');
     }
 
     req.user = {

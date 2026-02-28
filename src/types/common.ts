@@ -1,9 +1,14 @@
 export interface ApiResponse<T = unknown> {
-  success: boolean;
-  message?: string;
   data?: T;
-  error?: string;
-  timestamp?: string;
+  meta?: Record<string, unknown>;
+  requestId: string;
+}
+
+export interface ApiErrorResponse {
+  code: string;
+  message: string;
+  details?: unknown;
+  requestId: string;
 }
 
 export interface PaginationParams {

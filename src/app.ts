@@ -7,9 +7,11 @@ import config from '@/config';
 import routes from '@/routes';
 import { errorHandler, notFoundHandler } from '@/middleware/errorHandler';
 import logger from '@/shared/logger';
+import { requestId } from '@/middleware/requestId';
 
 const app: Application = express();
 
+app.use(requestId);
 app.use(helmet());
 app.use(cors({ origin: config.cors.origin }));
 app.use(compression());
