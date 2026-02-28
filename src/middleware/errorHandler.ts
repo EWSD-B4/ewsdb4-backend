@@ -65,9 +65,7 @@ export const errorHandler = (
   const payload: ApiErrorResponse = {
     success: false,
     message: 'Internal server error',
-    ...(process.env.NODE_ENV === 'development'
-      ? { error: err.message, stack: err.stack }
-      : {}),
+    ...(process.env.NODE_ENV === 'development' ? { error: err.message, stack: err.stack } : {}),
   };
 
   res.status(500).json(payload);

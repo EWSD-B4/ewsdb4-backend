@@ -526,4 +526,3 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
     });
   });
 });
-
