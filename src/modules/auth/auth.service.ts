@@ -68,6 +68,8 @@ class AuthService {
 
     await cache.set(`auth:state:user:${user.id}`, 'logged_in');
 
+    await Try.execute(() => userRepository.update(user.id, { last_login: new Date() })).orElseLogWarning('Failed to update last login');
+
     return {
       user: {
         id: user.id,
