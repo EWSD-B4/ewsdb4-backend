@@ -17,4 +17,5 @@ export interface CreateUserDTO {
 export interface UpdateUserDTO {
   name?: string;
   email?: string;
+  last_login?: Date;
 }
