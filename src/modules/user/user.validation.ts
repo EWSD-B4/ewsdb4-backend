@@ -14,6 +14,12 @@ export const createUserSchema = Joi.object({
     'string.min': 'Password must be at least 8 characters long',
     'any.required': 'Password is required',
   }),
+  role_id: Joi.number().required().messages({
+    'any.required': 'Role ID is required',
+  }),
+  faculty_id: Joi.number().required().messages({
+    'any.required': 'Faculty ID is required',
+  }),
 });
 
 export const updateUserSchema = Joi.object({

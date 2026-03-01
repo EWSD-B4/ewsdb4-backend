@@ -1,6 +1,6 @@
 import app from './app';
 import config from '@/config';
-import database from '@/shared/database/mysql';
+import { database } from '@/shared/database';
 import cache from '@/shared/cache/redis';
 import logger from '@/shared/logger';
 
