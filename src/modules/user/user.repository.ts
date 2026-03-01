@@ -1,78 +1,276 @@
-import { RowDataPacket } from 'mysql2';
-import database from '@/shared/database/mysql';
+import { db } from '@/shared/database';
 import { User, CreateUserDTO, UpdateUserDTO } from './user.types';
 
 class UserRepository {
-  private tableName = 'users';
-
   async findAll(): Promise<User[]> {
-    const query = `SELECT id, email, name, created_at as createdAt, updated_at as updatedAt FROM ${this.tableName}`;
-    const users = await database.query<RowDataPacket[]>(query);
-    return users as User[];
+    const users = await db.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        createdAt: true,
+        updatedAt: true,
+        role: {
+          select: {
+            id: true,
+            roleCode: true,
+          },
+        },
+        faculty: {
+          select: {
+            facultyName: true,
+          },
+        },
+      },
+    });
+
+    return users.map((user) => ({
+      id: user.id.toString(),
+      email: user.email,
+      name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      role: user.role.roleCode,
+      role_id: user.role.id,
+      faculty: user.faculty?.facultyName || 'N/A',
+    }));
   }
 
   async findById(id: string): Promise<User | null> {
-    const query = `SELECT id, email, name, created_at as createdAt, updated_at as updatedAt FROM ${this.tableName} WHERE id = ?`;
-    const users = await database.query<RowDataPacket[]>(query, [id]);
-    return users.length > 0 ? (users[0] as User) : null;
+    const user = await db.user.findUnique({
+      where: { id: parseInt(id) },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        createdAt: true,
+        updatedAt: true,
+        role: {
+          select: {
+            id: true,
+            roleCode: true,
+          },
+        },
+        faculty: {
+          select: {
+            facultyName: true,
+          },
+        },
+      },
+    });
+
+    if (!user) return null;
+
+    return {
+      id: user.id.toString(),
+      email: user.email,
+      name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      role: user.role.roleCode,
+      role_id: user.role.id,
+      faculty: user.faculty?.facultyName || 'N/A',
+    };
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    const query = `SELECT id, email, name, created_at as createdAt, updated_at as updatedAt FROM ${this.tableName} WHERE email = ?`;
-    const users = await database.query<RowDataPacket[]>(query, [email]);
-    return users.length > 0 ? (users[0] as User) : null;
+    const user = await db.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        createdAt: true,
+        updatedAt: true,
+        role: {
+          select: {
+            id: true,
+            roleCode: true,
+          },
+        },
+        faculty: {
+          select: {
+            facultyName: true,
+          },
+        },
+      },
+    });
+
+    if (!user) return null;
+
+    return {
+      id: user.id.toString(),
+      email: user.email,
+      name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      role: user.role.roleCode,
+      role_id: user.role.id,
+      faculty: user.faculty?.facultyName || 'N/A',
+    };
   }
 
   async findByEmailWithPassword(email: string): Promise<(User & { password: string }) | null> {
-    const query = `SELECT ${this.tableName}.id, ${this.tableName}.email, ${this.tableName}.name, ${this.tableName}.password, ${this.tableName}.created_at as createdAt, ${this.tableName}.updated_at as updatedAt, roles.role FROM ${this.tableName} JOIN roles ON ${this.tableName}.role_id = roles.role_id WHERE ${this.tableName}.email = ?`;
-    const users = await database.query<RowDataPacket[]>(query, [email]);
-    return users.length > 0 ? (users[0] as User & { password: string }) : null;
+    const user = await db.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        passwordHash: true,
+        createdAt: true,
+        updatedAt: true,
+        role: {
+          select: {
+            id: true,
+            roleCode: true,
+          },
+        },
+        faculty: {
+          select: {
+            id: true,
+            facultyName: true,
+          },
+        },
+      },
+    });
+
+    if (!user) return null;
+
+    return {
+      id: user.id.toString(),
+      email: user.email,
+      name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+      password: user.passwordHash,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      role: user.role.roleCode,
+      role_id: user.role.id,
+      faculty: user.faculty?.facultyName || 'N/A',
+    };
   }
 
   async create(userData: CreateUserDTO): Promise<User> {
-    const query = `INSERT INTO ${this.tableName} (email, name, password, role_id) VALUES (?, ?, ?, ?)`;
-    const result = await database.query<any>(query, [
-      userData.email,
-      userData.name,
-      userData.password,
-      userData.role_id,
-    ]);
+    const [firstName, ...lastNameParts] = (userData.name || '').split(' ');
+    const lastName = lastNameParts.join(' ');
 
-    const newUser = await this.findById(result.insertId);
-    if (!newUser) {
-      throw new Error('Failed to create user');
-    }
-    return newUser;
+    const user = await db.user.create({
+      data: {
+        email: userData.email,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        passwordHash: userData.password,
+        roleId: userData.role_id,
+        facultyId: userData.faculty_id,
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        createdAt: true,
+        updatedAt: true,
+        role: {
+          select: {
+            id: true,
+            roleCode: true,
+          },
+        },
+        faculty: {
+          select: {
+            facultyName: true,
+          },
+        },
+      },
+    });
+
+    return {
+      id: user.id.toString(),
+      email: user.email,
+      name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      role: user.role.roleCode,
+      role_id: user.role.id,
+      faculty: user.faculty?.facultyName || 'N/A',
+    };
   }
 
   async update(id: string, userData: UpdateUserDTO): Promise<User | null> {
-    const fields: string[] = [];
-    const values: any[] = [];
+    const updateData: any = {};
 
     if (userData.name) {
-      fields.push('name = ?');
-      values.push(userData.name);
-    }
-    if (userData.email) {
-      fields.push('email = ?');
-      values.push(userData.email);
+      const [firstName, ...lastNameParts] = userData.name.split(' ');
+      updateData.firstName = firstName;
+      updateData.lastName = lastNameParts.join(' ') || null;
     }
 
-    if (fields.length === 0) {
+    if (userData.email) {
+      updateData.email = userData.email;
+    }
+
+    if (Object.keys(updateData).length === 0) {
       return this.findById(id);
     }
 
-    values.push(id);
-    const query = `UPDATE ${this.tableName} SET ${fields.join(', ')}, updated_at = NOW() WHERE id = ?`;
-    await database.query(query, values);
+    const user = await db.user.update({
+      where: { id: parseInt(id) },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        createdAt: true,
+        updatedAt: true,
+        role: {
+          select: {
+            id: true,
+            roleCode: true,
+          },
+        },
+        faculty: {
+          select: {
+            facultyName: true,
+          },
+        },
+      },
+    });
 
-    return this.findById(id);
+    return {
+      id: user.id.toString(),
+      email: user.email,
+      name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      role: user.role.roleCode,
+      role_id: user.role.id,
+      faculty: user.faculty?.facultyName || 'N/A',
+    };
   }
 
   async delete(id: string): Promise<boolean> {
-    const query = `DELETE FROM ${this.tableName} WHERE id = ?`;
-    const result = await database.query<any>(query, [id]);
-    return result.affectedRows > 0;
+    try {
+      await db.user.delete({
+        where: { id: parseInt(id) },
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async updatePassword(userId: string, newPasswordHash: string): Promise<void> {
+    await db.user.update({
+      where: { id: parseInt(userId) },
+      data: {
+        passwordHash: newPasswordHash,
+      },
+    });
   }
 }
 

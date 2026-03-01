@@ -2,7 +2,7 @@ import documentProcessor from './document-processor';
 import logger from '@/shared/logger';
 import config from '@/config';
 import { Try } from '@/shared/utils/Try';
-import database from '@/shared/database/mysql';
+import { database } from '@/shared/database';
 import cache from '@/shared/cache/redis';
 
 async function startWorker(): Promise<void> {
