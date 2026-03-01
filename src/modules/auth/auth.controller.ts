@@ -36,7 +36,7 @@ class AuthController {
   verifyResetToken = asyncHandler(async (req: Request, res: Response) => {
     const { token } = req.query;
     const result = await authService.verifyResetToken(token as string);
-    
+
     if (!result.valid) {
       res.status(400).json(successResponse('Invalid or expired reset token', { valid: false }));
     } else {

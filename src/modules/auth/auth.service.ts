@@ -1,5 +1,12 @@
 import userRepository from '@/modules/user/user.repository';
-import { LoginDTO, RegisterDTO, AuthResponse, UpdatePasswordDTO, ForgetPasswordDTO, ResetPasswordDTO } from './auth.types';
+import {
+  LoginDTO,
+  RegisterDTO,
+  AuthResponse,
+  UpdatePasswordDTO,
+  ForgetPasswordDTO,
+  ResetPasswordDTO,
+} from './auth.types';
 import { AppError } from '@/middleware/errorHandler';
 import { hashPassword, comparePassword } from '@/utils/password';
 import { generateToken } from '@/utils/jwt';
@@ -91,9 +98,9 @@ class AuthService {
   }
 
   async updatePassword(userId: string, data: UpdatePasswordDTO): Promise<void> {
-    const userBasic = await Try.execute(() =>
-      userRepository.findById(userId)
-    ).orElseThrow('Failed to find user');
+    const userBasic = await Try.execute(() => userRepository.findById(userId)).orElseThrow(
+      'Failed to find user'
+    );
 
     if (!userBasic) {
       throw new AppError('User not found', 404);
@@ -107,10 +114,7 @@ class AuthService {
       throw new AppError('User not found', 404);
     }
 
-    const isCurrentPasswordValid = await comparePassword(
-      data.currentPassword,
-      user.password
-    );
+    const isCurrentPasswordValid = await comparePassword(data.currentPassword, user.password);
 
     if (!isCurrentPasswordValid) {
       throw new AppError('Current password is incorrect', 401);
@@ -122,15 +126,15 @@ class AuthService {
 
     const hashedPassword = await hashPassword(data.newPassword);
 
-    await Try.execute(() =>
-      userRepository.updatePassword(userId, hashedPassword)
-    ).orElseThrow('Failed to update password');
+    await Try.execute(() => userRepository.updatePassword(userId, hashedPassword)).orElseThrow(
+      'Failed to update password'
+    );
   }
 
   async forgetPassword(data: ForgetPasswordDTO): Promise<void> {
-    const user = await Try.execute(() =>
-      userRepository.findByEmail(data.email)
-    ).orElseThrow('Failed to check user');
+    const user = await Try.execute(() => userRepository.findByEmail(data.email)).orElseThrow(
+      'Failed to check user'
+    );
 
     if (!user) {
       return;
@@ -162,13 +166,13 @@ class AuthService {
       return { valid: false };
     }
 
-    const user = await Try.execute(() =>
-      userRepository.findById(userId)
-    ).orElseThrow('Failed to find user');
+    const user = await Try.execute(() => userRepository.findById(userId)).orElseThrow(
+      'Failed to find user'
+    );
 
-    return { 
-      valid: true, 
-      email: user?.email 
+    return {
+      valid: true,
+      email: user?.email,
     };
   }
 
@@ -188,9 +192,9 @@ class AuthService {
 
     const hashedPassword = await hashPassword(data.newPassword);
 
-    await Try.execute(() =>
-      userRepository.updatePassword(userId, hashedPassword)
-    ).orElseThrow('Failed to reset password');
+    await Try.execute(() => userRepository.updatePassword(userId, hashedPassword)).orElseThrow(
+      'Failed to reset password'
+    );
 
     await cache.del(`password:reset:${data.token}`);
   }
