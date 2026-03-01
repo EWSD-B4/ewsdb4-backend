@@ -174,6 +174,7 @@ Content-Type: application/json
 ```
 
 **Response (201 Created):**
+
 ```json
 {
   "success": true,
@@ -227,7 +228,7 @@ getProfile = asyncHandler(async (req: Request, res: Response) => {
   // req.user is available after authenticate middleware
   const userId = req.user!.id;
   const user = await userService.getUserById(userId);
-  
+
   res.json({ success: true, data: user });
 });
 ```
@@ -235,12 +236,14 @@ getProfile = asyncHandler(async (req: Request, res: Response) => {
 ### Security Best Practices
 
 1. **JWT Secret**: Change in production
+
    ```bash
    # Generate a strong secret
    node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
    ```
 
 2. **Token Expiration**: Configure in `.env`
+
    ```env
    JWT_SECRET=your-super-secret-jwt-key
    JWT_EXPIRES_IN=7d
@@ -262,25 +265,26 @@ GET /health
 
 ### Authentication
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| POST | `/auth/register` | Register new user | No |
-| POST | `/auth/login` | Login user | No |
-| GET | `/auth/me` | Get current user | Yes |
+| Method | Endpoint         | Description       | Auth Required |
+| ------ | ---------------- | ----------------- | ------------- |
+| POST   | `/auth/register` | Register new user | No            |
+| POST   | `/auth/login`    | Login user        | No            |
+| GET    | `/auth/me`       | Get current user  | Yes           |
 
 ### Users
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| GET | `/users` | Get all users | No |
-| GET | `/users/:id` | Get user by ID | No |
-| POST | `/users` | Create user | No |
-| PUT | `/users/:id` | Update user | No |
-| DELETE | `/users/:id` | Delete user | No |
+| Method | Endpoint     | Description    | Auth Required |
+| ------ | ------------ | -------------- | ------------- |
+| GET    | `/users`     | Get all users  | No            |
+| GET    | `/users/:id` | Get user by ID | No            |
+| POST   | `/users`     | Create user    | No            |
+| PUT    | `/users/:id` | Update user    | No            |
+| DELETE | `/users/:id` | Delete user    | No            |
 
 ### Response Format
 
 **Success:**
+
 ```json
 {
   "success": true,
@@ -290,6 +294,7 @@ GET /health
 ```
 
 **Error:**
+
 ```json
 {
   "success": false,
@@ -470,6 +475,7 @@ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specific
 ```
 
 **Types:**
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation changes
@@ -479,6 +485,7 @@ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specific
 - `chore`: Maintenance tasks
 
 **Examples:**
+
 ```
 feat(auth): add JWT authentication
 fix(user): resolve email validation bug
@@ -517,6 +524,7 @@ npm test             # Run tests
 **Problem:** `Cannot find module '@/config'`
 
 **Solution:**
+
 ```bash
 npm install
 # Restart your IDE
@@ -527,6 +535,7 @@ npm install
 ### MySQL Connection Error
 
 **Solution:**
+
 1. Check if MySQL is running: `mysql -u root -p`
 2. Verify credentials in `.env`
 3. Create database: `mysql -u root -p < scripts/setup-db.sql`
@@ -534,15 +543,17 @@ npm install
 ### Redis Connection Error
 
 **Solution:**
+
 1. Check if Redis is running: `redis-cli ping`
 2. Start Redis:
+
    ```bash
    # macOS
    brew services start redis
-   
+
    # Linux
    sudo systemctl start redis
-   
+
    # Docker
    docker run -d -p 6379:6379 redis:7-alpine
    ```
@@ -550,9 +561,10 @@ npm install
 ### Port Already in Use
 
 **Solution:**
+
 ```bash
 # Change port in .env
-PORT=3001
+PORT=3000
 
 # Or kill the process
 kill -9 $(lsof -ti:3000)
@@ -561,6 +573,7 @@ kill -9 $(lsof -ti:3000)
 ### TypeScript Build Errors
 
 **Solution:**
+
 ```bash
 # Check for type errors
 npm run typecheck
@@ -574,10 +587,12 @@ npm run build
 ### IDE Not Recognizing Path Aliases
 
 **WebStorm:**
+
 1. Right-click `tsconfig.json` → "Set as TypeScript Configuration File"
 2. Restart IDE
 
 **VS Code:**
+
 1. Cmd+Shift+P → "TypeScript: Select TypeScript Version"
 2. Choose "Use Workspace Version"
 

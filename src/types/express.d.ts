@@ -7,7 +7,9 @@ declare global {
         id: string;
         email: string;
         role: string;
+        facultyId?: string | null;
       };
+      requestId?: string;
     }
   }
 }

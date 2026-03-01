@@ -201,7 +201,12 @@ class UserRepository {
   }
 
   async update(id: string, userData: UpdateUserDTO): Promise<User | null> {
-    const updateData: any = {};
+    const updateData: {
+      firstName?: string;
+      lastName?: string | null;
+      email?: string;
+      lastLogin?: Date;
+    } = {};
 
     if (userData.name) {
       const [firstName, ...lastNameParts] = userData.name.split(' ');
@@ -211,6 +216,10 @@ class UserRepository {
 
     if (userData.email) {
       updateData.email = userData.email;
+    }
+
+    if (userData.last_login) {
+      updateData.lastLogin = userData.last_login;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -259,7 +268,7 @@ class UserRepository {
         where: { id: parseInt(id) },
       });
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

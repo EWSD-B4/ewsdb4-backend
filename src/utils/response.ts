@@ -1,24 +1,19 @@
 import { ApiResponse } from '@/types/common';
 
-export function createApiResponse<T = unknown>(
-  success: boolean,
-  message?: string,
-  data?: T,
-  error?: string
+export function successResponse<T = unknown>(
+  data: T,
+  _requestId: string,
+  meta?: Record<string, unknown>
 ): ApiResponse<T> {
+  const message =
+    typeof meta?.message === 'string' && meta.message.length > 0
+      ? meta.message
+      : 'Operation successful';
+
   return {
-    success,
+    success: true,
     message,
     data,
-    error,
     timestamp: new Date().toISOString(),
   };
-}
-
-export function successResponse<T = unknown>(message: string, data?: T): ApiResponse<T> {
-  return createApiResponse(true, message, data);
-}
-
-export function errorResponse(message: string, error?: string): ApiResponse {
-  return createApiResponse(false, message, undefined, error);
 }

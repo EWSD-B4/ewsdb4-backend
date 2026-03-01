@@ -64,7 +64,7 @@ class DocumentService {
     };
   }
 
-  async getDocumentById(_documentId: string, _userId: string): Promise<Document | null> {
+  getDocumentById(_documentId: string, _userId: string): Promise<Document | null> {
     // TODO: Refactor to use Prisma
     // return Try.execute(async () => {
     //   const document = await db.document.findFirst({
@@ -78,7 +78,7 @@ class DocumentService {
     throw new InternalServerError('Document service needs to be refactored for Prisma');
   }
 
-  async getUserDocuments(
+  getUserDocuments(
     _userId: string,
     _limit: number = 50,
     _offset: number = 0
@@ -156,7 +156,7 @@ class DocumentService {
     status: DocumentStatus,
     processingError?: string
   ): Promise<void> {
-    return Try.execute(async () => {
+    return Try.execute(() => {
       const updateFields = ['status = ?', 'updated_at = NOW()'];
       const params: any[] = [status];
 
@@ -193,7 +193,7 @@ class DocumentService {
     _convertedHtmlKey: string,
     _convertedJsonKey: string
   ): Promise<void> {
-    return Try.execute(async () => {
+    return Try.execute(() => {
       // TODO: Refactor to use Prisma
       // await db.document.update({
       //   where: { id: documentId },

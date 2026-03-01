@@ -47,7 +47,8 @@
     "resend": "^6.9.3",
     "tsconfig-paths": "^4.2.0",
     "uuid": "^13.0.0",
-    "winston": "^3.11.0"
+    "winston": "^3.11.0",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.8",

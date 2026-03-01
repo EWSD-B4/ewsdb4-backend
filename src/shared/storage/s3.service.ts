@@ -64,7 +64,9 @@ class S3Service {
       const chunks: Buffer[] = [];
 
       return new Promise((resolve, reject) => {
-        stream.on('data', (chunk) => chunks.push(chunk));
+        stream.on('data', (chunk: Buffer | string) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        });
         stream.on('error', reject);
         stream.on('end', () => resolve(Buffer.concat(chunks)));
       });

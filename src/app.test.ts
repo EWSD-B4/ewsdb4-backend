@@ -8,7 +8,10 @@ describe('App', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('message', 'API is healthy');
+      expect(response.body).toHaveProperty('message');
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('status', 'ok');
+      expect(response.body.data).toHaveProperty('timestamp');
       expect(response.body).toHaveProperty('timestamp');
     });
   });

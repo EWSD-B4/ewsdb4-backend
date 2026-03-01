@@ -1,18 +1,36 @@
-import { Resend } from 'resend';
 import config from '@/config';
 import logger from '@/shared/logger';
+import { Resend } from 'resend';
+
+type EmailSendPayload = {
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+};
+
+type ResendClient = {
+  emails: {
+    send: (payload: EmailSendPayload) => Promise<unknown>;
+  };
+};
 
 class EmailService {
-  private resend: Resend;
+  private resend: ResendClient | null;
   private readonly from: string;
 
   constructor() {
-    this.resend = new Resend(config.email.resendApiKey);
+    this.resend = new Resend(config.email.resendApiKey) as unknown as ResendClient;
     this.from = config.email.from;
   }
 
   async sendPasswordResetEmail(to: string, resetToken: string): Promise<void> {
     const resetUrl = `${config.email.appUrl}/reset?token=${resetToken}`;
+
+    if (!this.resend) {
+      logger.warn(`Skipping password reset email to ${to} because email client is unavailable`);
+      return;
+    }
 
     try {
       await this.resend.emails.send({
@@ -74,6 +92,11 @@ class EmailService {
   }
 
   async sendWelcomeEmail(to: string, name: string): Promise<void> {
+    if (!this.resend) {
+      logger.warn(`Skipping welcome email to ${to} because email client is unavailable`);
+      return;
+    }
+
     try {
       await this.resend.emails.send({
         from: this.from,

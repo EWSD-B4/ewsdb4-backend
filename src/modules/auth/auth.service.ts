@@ -15,11 +15,19 @@ import cache from '@/shared/cache/redis';
 import crypto from 'crypto';
 import { emailService } from '@/shared/email';
 
+type PasswordResetCacheEntry = {
+  userId: string;
+  expiry: number;
+};
+
 class AuthService {
   async register(data: RegisterDTO): Promise<AuthResponse> {
     const existingUser = await Try.execute(() =>
       userRepository.findByEmail(data.email)
-    ).orElseThrow('Failed to check existing user');
+    ).orElseThrow(
+      'Failed to check existing user',
+      new AppError('Failed to check existing user', 500, 'INTERNAL_ERROR')
+    );
 
     if (existingUser) {
       throw new AppError('User with this email already exists', 409);
@@ -35,7 +43,10 @@ class AuthService {
         role_id: data.role_id ?? 1,
         faculty_id: data.faculty_id ?? 1,
       })
-    ).orElseThrow('Failed to create user');
+    ).orElseThrow(
+      'Failed to create user',
+      new AppError('Failed to create user', 500, 'INTERNAL_ERROR')
+    );
 
     const token = generateToken({
       userId: user.id,
@@ -161,7 +172,7 @@ class AuthService {
       return { valid: false };
     }
 
-    const { userId, expiry } = JSON.parse(resetData);
+    const { userId, expiry } = JSON.parse(resetData) as PasswordResetCacheEntry;
 
     if (Date.now() > expiry) {
       await cache.del(`password:reset:${token}`);
@@ -185,7 +196,7 @@ class AuthService {
       throw new AppError('Invalid or expired reset token', 400);
     }
 
-    const { userId, expiry } = JSON.parse(resetData);
+    const { userId, expiry } = JSON.parse(resetData) as PasswordResetCacheEntry;
 
     if (Date.now() > expiry) {
       await cache.del(`password:reset:${data.token}`);

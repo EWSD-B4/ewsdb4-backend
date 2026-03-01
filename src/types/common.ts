@@ -1,9 +1,15 @@
 export interface ApiResponse<T = unknown> {
   success: boolean;
-  message?: string;
+  message: string;
   data?: T;
+  timestamp: string;
+}
+
+export interface ApiErrorResponse {
+  success: boolean;
+  message: string;
+  stack?: string;
   error?: string;
-  timestamp?: string;
 }
 
 export interface PaginationParams {

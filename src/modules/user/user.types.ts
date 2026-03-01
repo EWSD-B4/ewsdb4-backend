@@ -14,7 +14,7 @@ export interface CreateUserDTO {
   name: string;
   password: string;
   role_id: number;
-  faculty_id: number;
+  faculty_id?: number;
 }
 
 export interface UpdateUserDTO {
