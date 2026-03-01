@@ -1,4 +1,4 @@
-import prisma from '@/shared/database/prisma';
+import { db as prisma } from '@/shared/database';
 import { BadRequestError, ConflictError, NotFoundError } from '@/shared/errors/AppError';
 import { FacultyListQuery } from './faculty.types';
 import { Prisma } from '@prisma/client';

@@ -22,9 +22,13 @@ const prismaMock = {
   },
 };
 
-jest.mock('@/shared/database/prisma', () => ({
+jest.mock('@/shared/database', () => ({
   __esModule: true,
-  default: prismaMock,
+  db: prismaMock,
+  database: {
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+  },
 }));
 
 jest.mock('@/shared/cache/redis', () => ({
@@ -42,7 +46,7 @@ jest.mock('@/utils/jwt', () => ({
 }));
 
 import app from './app';
-import prisma from '@/shared/database/prisma';
+import { db as prisma } from '@/shared/database';
 import cache from '@/shared/cache/redis';
 import { verifyToken } from '@/utils/jwt';
 

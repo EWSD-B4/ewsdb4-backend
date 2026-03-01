@@ -1,4 +1,4 @@
-import prisma from '@/shared/database/prisma';
+import { db as prisma } from '@/shared/database';
 
 class ReportService {
   async getFacultyStatistics(facultyId: number, academicYearId: number) {

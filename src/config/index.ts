@@ -55,6 +55,11 @@ interface Config {
     secret: string;
     expiresIn: string;
   };
+  email: {
+    resendApiKey: string;
+    from: string;
+    appUrl: string;
+  };
 }
 
 const config: Config = {
@@ -102,6 +107,11 @@ const config: Config = {
   jwt: {
     secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  },
+  email: {
+    resendApiKey: process.env.RESEND_API_KEY || '',
+    from: process.env.EMAIL_FROM || 'noreply@yourdomain.com',
+    appUrl: process.env.APP_URL || 'http://localhost:3000',
   },
 };
 

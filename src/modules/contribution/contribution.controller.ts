@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '@/middleware/asyncHandler';
 import contributionService from './contribution.service';
 import { successResponse } from '@/utils/response';
-import prisma from '@/shared/database/prisma';
+import { db as prisma } from '@/shared/database';
 
 class ContributionController {
   listCoordinator = asyncHandler(async (req: Request, res: Response) => {

@@ -5,6 +5,8 @@ export interface User {
   createdAt: Date;
   updatedAt: Date;
   role: string;
+  role_id: number;
+  faculty: string;
 }
 
 export interface CreateUserDTO {
@@ -12,9 +14,11 @@ export interface CreateUserDTO {
   name: string;
   password: string;
   role_id: number;
+  faculty_id?: number;
 }
 
 export interface UpdateUserDTO {
   name?: string;
   email?: string;
+  last_login?: Date;
 }

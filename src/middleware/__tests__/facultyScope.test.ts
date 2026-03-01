@@ -1,12 +1,16 @@
 import { requireFacultyIfRoleNeedsIt } from '../facultyScope';
-import prisma from '../../shared/database/prisma';
+import { db as prisma } from '../../shared/database';
 
-jest.mock('../../shared/database/prisma', () => ({
+jest.mock('../../shared/database', () => ({
   __esModule: true,
-  default: {
+  db: {
     user: {
       findUnique: jest.fn(),
     },
+  },
+  database: {
+    connect: jest.fn(),
+    disconnect: jest.fn(),
   },
 }));
 

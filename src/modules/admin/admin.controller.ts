@@ -16,7 +16,8 @@ class AdminController {
   });
 
   listFacultyUsers = asyncHandler(async (req: Request, res: Response) => {
-    const roleCode = (req.query.roleCode as string) || undefined;
+    const roleCodeRaw = (req.query.roleCode as string) || undefined;
+    const roleCode = roleCodeRaw ? roleCodeRaw.toUpperCase() : undefined;
     const limitRaw = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
     const offsetRaw = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 100 ? limitRaw : 20;

@@ -1,8 +1,9 @@
-import prisma from '@/shared/database/prisma';
+import { db as prisma } from '@/shared/database';
 import { BadRequestError, ConflictError, NotFoundError } from '@/shared/errors/AppError';
 import { Prisma } from '@prisma/client';
+import { ROLES } from '@/constants/roles';
 
-const rolesRequiringFaculty = new Set(['student', 'coordinator']);
+const rolesRequiringFaculty = new Set<string>([ROLES.STUDENT, ROLES.COORDINATOR]);
 
 class AdminService {
   async assignUserFaculty(userId: string, facultyId: string | null) {
@@ -19,7 +20,7 @@ class AdminService {
       throw new NotFoundError('User not found');
     }
 
-    if (rolesRequiringFaculty.has(user.role.roleCode) && !facultyId) {
+    if (rolesRequiringFaculty.has(String(user.role.roleCode).toUpperCase()) && !facultyId) {
       throw new BadRequestError('This role requires a faculty assignment');
     }
 
@@ -78,7 +79,7 @@ class AdminService {
 
     const where: Prisma.UserWhereInput = { facultyId: facultyIdNum };
     if (roleCode) {
-      where.role = { roleCode };
+      where.role = { roleCode: roleCode.toUpperCase() };
     }
 
     const [items, total] = await Promise.all([

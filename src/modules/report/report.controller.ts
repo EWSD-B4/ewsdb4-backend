@@ -3,6 +3,7 @@ import { asyncHandler } from '@/middleware/asyncHandler';
 import reportService from './report.service';
 import { successResponse } from '@/utils/response';
 import { AppError } from '@/middleware/errorHandler';
+import { ROLES } from '@/constants/roles';
 
 class ReportController {
   getFacultyStatistics = asyncHandler(async (req: Request, res: Response) => {
@@ -28,7 +29,8 @@ class ReportController {
   });
 
   private resolveFacultyId(req: Request): number {
-    if (req.user?.role === 'coordinator') {
+    const normalizedRole = req.user?.role ? String(req.user.role).toUpperCase() : '';
+    if (normalizedRole === ROLES.COORDINATOR && req.user) {
       if (!req.user.facultyId) {
         throw new AppError('Faculty assignment required', 403, 'FORBIDDEN');
       }

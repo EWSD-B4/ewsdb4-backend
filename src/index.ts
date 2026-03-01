@@ -1,15 +1,13 @@
 import app from './app';
 import config from '@/config';
-import database from '@/shared/database/mysql';
+import { database } from '@/shared/database';
 import cache from '@/shared/cache/redis';
 import logger from '@/shared/logger';
-import prisma from '@/shared/database/prisma';
 
 const startServer = async () => {
   try {
     await database.connect();
     await cache.connect();
-    await prisma.$connect();
 
     const server = app.listen(config.port, () => {
       logger.info(`Server running on port ${config.port} in ${config.env} mode`);
@@ -26,7 +24,6 @@ const startServer = async () => {
           try {
             await database.disconnect();
             await cache.disconnect();
-            await prisma.$disconnect();
             logger.info('All connections closed. Exiting process.');
             process.exit(0);
           } catch (error) {
@@ -42,8 +39,12 @@ const startServer = async () => {
       }, 10000);
     };
 
-    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGTERM', () => {
+      gracefulShutdown('SIGTERM');
+    });
+    process.on('SIGINT', () => {
+      gracefulShutdown('SIGINT');
+    });
 
     process.on('unhandledRejection', (reason: any) => {
       logger.error('Unhandled Rejection:', reason);

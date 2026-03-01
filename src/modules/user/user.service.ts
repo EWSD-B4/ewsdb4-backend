@@ -44,7 +44,6 @@ class UserService {
       throw new AppError('User with this email already exists', 409);
     }
 
-    userData.role_id = 1;
     userData.password = await hashPassword(userData.password);
     return await Try.execute(() => userRepository.create(userData)).orElseThrow(
       'Failed to create user'

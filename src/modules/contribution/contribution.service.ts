@@ -1,4 +1,4 @@
-import prisma from '@/shared/database/prisma';
+import { db as prisma } from '@/shared/database';
 import { BadRequestError, NotFoundError } from '@/shared/errors/AppError';
 
 class ContributionService {

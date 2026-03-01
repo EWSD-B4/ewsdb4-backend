@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import prisma from '@/shared/database/prisma';
+import { db as prisma } from '@/shared/database';
 import { AppError } from './errorHandler';
+import { ROLES } from '@/constants/roles';
 
-const rolesRequiringFaculty = new Set(['student', 'coordinator']);
+const rolesRequiringFaculty = new Set<string>([ROLES.STUDENT, ROLES.COORDINATOR]);
 type UserWithFaculty = { facultyId: number | null };
 
 const hasFacultyId = (value: unknown): value is UserWithFaculty => {
@@ -21,7 +22,7 @@ export const requireFacultyIfRoleNeedsIt = async (
     return next(new AppError('Authentication required', 401, 'UNAUTHORIZED'));
   }
 
-  if (!rolesRequiringFaculty.has(req.user.role)) {
+  if (!rolesRequiringFaculty.has(String(req.user.role).toUpperCase())) {
     return next();
   }
 
@@ -53,7 +54,8 @@ export const enforceContributionFacultyOnCreate = (
     return next(new AppError('Authentication required', 401, 'UNAUTHORIZED'));
   }
 
-  if (req.user.role === 'student' || req.user.role === 'coordinator') {
+  const role = String(req.user.role).toUpperCase();
+  if (role === ROLES.STUDENT || role === ROLES.COORDINATOR) {
     const facultyIdNum = req.user.facultyId ? parseInt(String(req.user.facultyId), 10) : undefined;
     if (facultyIdNum) {
       const body = req.body as Record<string, unknown>;
