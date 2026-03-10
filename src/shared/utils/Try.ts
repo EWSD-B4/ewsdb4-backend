@@ -71,6 +71,16 @@ export class Try<T> {
     return this.result;
   }
 
+  async orElse(fallbackValue: T): Promise<T> {
+    await this.executeAction();
+
+    if (this.failure) {
+      return fallbackValue;
+    }
+
+    return this.result as T;
+  }
+
   onFailure(handler: (error: Error) => void | Promise<void>): Try<T> {
     const originalExecute = this.executeAction.bind(this);
     this.executeAction = async () => {

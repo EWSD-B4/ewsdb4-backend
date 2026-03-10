@@ -7,6 +7,7 @@ import adminRoutes from '@/modules/admin/admin.routes';
 import coordinatorRoutes from '@/modules/contribution/coordinator.routes';
 import guestRoutes from '@/modules/contribution/guest.routes';
 import reportRoutes from '@/modules/report/report.routes';
+import academicYearRoutes from '@/modules/academic-year/academic-year.routes';
 const router = Router();
 
 router.use('/auth', authRoutes);
@@ -16,6 +17,7 @@ router.use('/admin', adminRoutes);
 router.use('/coordinator', coordinatorRoutes);
 router.use('/guest', guestRoutes);
 router.use('/reports', reportRoutes);
+router.use('/academic-years', academicYearRoutes);
 
 router.get('/health', (_req, res) => {
   res
