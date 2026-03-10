@@ -10,6 +10,7 @@ import reportRoutes from '@/modules/report/report.routes';
 import academicYearRoutes from '@/modules/academic-year/academic-year.routes';
 import termsRoutes from '@/modules/terms/terms.routes';
 import commentRoutes from '@/modules/comment/comment.routes';
+import notificationRoutes from '@/modules/notification/notification.routes';
 const router = Router();
 
 router.use('/auth', authRoutes);
@@ -22,6 +23,7 @@ router.use('/reports', reportRoutes);
 router.use('/academic-years', academicYearRoutes);
 router.use('/terms', termsRoutes);
 router.use('/comments', commentRoutes);
+router.use('/notifications', notificationRoutes);
 
 router.get('/health', (_req, res) => {
   res
