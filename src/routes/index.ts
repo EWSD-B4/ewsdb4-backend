@@ -11,6 +11,7 @@ import academicYearRoutes from '@/modules/academic-year/academic-year.routes';
 import termsRoutes from '@/modules/terms/terms.routes';
 import commentRoutes from '@/modules/comment/comment.routes';
 import notificationRoutes from '@/modules/notification/notification.routes';
+import historyRoutes from '@/modules/history/history.routes';
 const router = Router();
 
 router.use('/auth', authRoutes);
@@ -24,6 +25,7 @@ router.use('/academic-years', academicYearRoutes);
 router.use('/terms', termsRoutes);
 router.use('/comments', commentRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/history', historyRoutes);
 
 router.get('/health', (_req, res) => {
   res
