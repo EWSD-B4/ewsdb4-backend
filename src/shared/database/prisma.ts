@@ -1,19 +1,25 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
-import config from '@/config';
 import logger from '@/shared/logger';
 
-// Create MariaDB/MySQL adapter configuration
-const adapter = new PrismaMariaDb({
-  host: config.database.host,
-  port: config.database.port,
-  user: config.database.user,
-  password: config.database.password,
-  database: config.database.name,
-  connectionLimit: config.database.connectionLimit,
-});
-
 const prismaClientSingleton = () => {
+  // Build database URL from environment variables
+  const databaseUrl = process.env.DATABASE_URL || 
+    `mysql://${process.env.DB_USER || 'root'}:${process.env.DB_PASSWORD || ''}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '3306'}/${process.env.DB_NAME || 'ewsd_db'}`;
+  
+  // Parse the database URL to extract connection details
+  const url = new URL(databaseUrl);
+  
+  // Create Prisma adapter with pool configuration
+  const adapter = new PrismaMariaDb({
+    host: url.hostname,
+    port: parseInt(url.port || '3306'),
+    user: url.username,
+    password: url.password,
+    database: url.pathname.slice(1),
+    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '10'),
+  });
+  
   return new PrismaClient({
     adapter,
     log: [

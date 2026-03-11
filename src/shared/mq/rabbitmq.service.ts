@@ -7,8 +7,9 @@ import documentService from '@/modules/document/document.service';
 import { DocumentStatus } from '@/modules/document/document.types';
 
 export interface DocumentMessage {
-  documentId: string;
-  userId: string;
+  contributionFileId: number;
+  contributionId: number;
+  userId: number;
   fileName: string;
   s3Key: string;
   contentType: string;
@@ -24,8 +25,9 @@ const isDocumentMessage = (value: unknown): value is DocumentMessage => {
   }
   const data = value as Record<string, unknown>;
   return (
-    typeof data.documentId === 'string' &&
-    typeof data.userId === 'string' &&
+    typeof data.contributionFileId === 'number' &&
+    typeof data.contributionId === 'number' &&
+    typeof data.userId === 'number' &&
     typeof data.fileName === 'string' &&
     typeof data.s3Key === 'string' &&
     typeof data.contentType === 'string' &&
@@ -136,7 +138,7 @@ class RabbitMQService {
         throw new Error('Failed to publish message to RabbitMQ');
       }
 
-      logger.info(`Message published to RabbitMQ: ${message.documentId}`);
+      logger.info(`Message published to RabbitMQ: contributionFileId=${message.contributionFileId}`);
     }).orElseThrow(
       'Error publishing message to RabbitMQ',
       new InternalServerError('Failed to publish message to RabbitMQ')
@@ -176,27 +178,27 @@ class RabbitMQService {
             const retryCount = (msg.properties.headers?.['x-retry-count'] as number) || 0;
 
             await Try.execute(async () => {
-              logger.info(`Processing message: ${message.documentId} (retry: ${retryCount})`);
+              logger.info(`Processing message: contributionFileId=${message.contributionFileId} (retry: ${retryCount})`);
 
               await callback(message);
 
               channel.ack(msg);
-              logger.info(`Message acknowledged: ${message.documentId}`);
+              logger.info(`Message acknowledged: contributionFileId=${message.contributionFileId}`);
             })
               .onFailure(async (error: Error) => {
                 const errorMessage = error.message || 'Unknown error';
 
-                logger.error(`Error processing message ${message.documentId}:`, error);
+                logger.error(`Error processing message contributionFileId=${message.contributionFileId}:`, error);
 
                 if (retryCount >= config.rabbitmq.maxRetries) {
                   // Max retries reached - send to permanent DLQ (nack without requeue)
                   logger.error(
-                    `Max retries (${config.rabbitmq.maxRetries}) reached for message: ${message.documentId}. Moving to DLQ permanently.`
+                    `Max retries (${config.rabbitmq.maxRetries}) reached for message: contributionFileId=${message.contributionFileId}. Moving to DLQ permanently.`
                   );
 
                   // Update document status to FAILED with error details
-                  await documentService.updateDocumentStatus(
-                    message.documentId,
+                  await documentService.updateFileStatus(
+                    message.contributionFileId,
                     DocumentStatus.FAILED,
                     `Failed after ${config.rabbitmq.maxRetries} retries. Last error: ${errorMessage}`
                   );
@@ -212,7 +214,7 @@ class RabbitMQService {
                   };
 
                   logger.warn(
-                    `Retry ${newRetryCount}/${config.rabbitmq.maxRetries} for message: ${message.documentId}. Will retry after ${config.rabbitmq.retryDelayMs}ms. Last error: ${errorMessage}`
+                    `Retry ${newRetryCount}/${config.rabbitmq.maxRetries} for message: contributionFileId=${message.contributionFileId}. Will retry after ${config.rabbitmq.retryDelayMs}ms. Last error: ${errorMessage}`
                   );
 
                   // Publish to DLX with incremented retry count in headers
@@ -237,7 +239,7 @@ class RabbitMQService {
                   channel.ack(msg);
                 }
               })
-              .orElseLogWarning(`Failed to process message ${message.documentId}`);
+              .orElseLogWarning(`Failed to process message contributionFileId=${message.contributionFileId}`);
           })();
         },
         {

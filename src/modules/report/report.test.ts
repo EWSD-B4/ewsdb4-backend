@@ -21,8 +21,7 @@ describe('Report API', () => {
 
     const academicYear = await db.academicYear.findFirst({ where: { isActive: true } });
     academicYearId = academicYear!.id;
-
-    const coordinatorUser = await db.user.create({
+    await db.user.create({
       data: {
         email: 'report-coordinator@test.edu',
         passwordHash: '$2b$10$test',
@@ -32,7 +31,6 @@ describe('Report API', () => {
         facultyId,
       },
     });
-
     const studentUser = await db.user.create({
       data: {
         email: 'report-student@test.edu',

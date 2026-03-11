@@ -57,6 +57,76 @@ class ContributionController {
     );
   });
 
+  createStudent = asyncHandler(async (req: Request, res: Response) => {
+    const facultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : undefined;
+    if (!facultyId) {
+      res.status(403).json({
+        success: false,
+        message: 'Faculty assignment required',
+        ...(process.env.NODE_ENV === 'development'
+          ? { stack: new Error('Faculty assignment required').stack }
+          : {}),
+      });
+      return;
+    }
+
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    
+    if (!files || !files.docx || files.docx.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'DOCX file is required',
+        ...(process.env.NODE_ENV === 'development'
+          ? { stack: new Error('DOCX file is required').stack }
+          : {}),
+      });
+      return;
+    }
+
+    const docxFile = files.docx[0];
+    const imageFiles = files.images || [];
+
+    if (imageFiles.length > 5) {
+      res.status(400).json({
+        success: false,
+        message: 'Maximum 5 images allowed',
+        ...(process.env.NODE_ENV === 'development'
+          ? { stack: new Error('Maximum 5 images allowed').stack }
+          : {}),
+      });
+      return;
+    }
+
+    const userId = parseInt(String(req.user!.id), 10);
+    const { title, academicYearId } = req.body;
+
+    if (!title || !academicYearId) {
+      res.status(400).json({
+        success: false,
+        message: 'Title and academicYearId are required',
+        ...(process.env.NODE_ENV === 'development'
+          ? { stack: new Error('Title and academicYearId are required').stack }
+          : {}),
+      });
+      return;
+    }
+
+    const result = await contributionService.createStudentContribution(
+      userId,
+      facultyId,
+      parseInt(String(academicYearId), 10),
+      title,
+      docxFile,
+      imageFiles
+    );
+
+    res.status(201).json(
+      successResponse(result, req.requestId || 'unknown', {
+        message: `Contribution created successfully. DOCX file is being processed. ${imageFiles.length} image(s) uploaded.`,
+      })
+    );
+  });
+
   listGuestFaculties = asyncHandler(async (req: Request, res: Response) => {
     const faculties = await prisma.faculty.findMany({
       where: { isActive: true },

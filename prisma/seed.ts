@@ -1,4 +1,4 @@
-import { db } from '../dist/shared/database';
+import { db } from '@/shared/database';
 import bcrypt from 'bcrypt';
 
 const SALT_ROUNDS = 10;

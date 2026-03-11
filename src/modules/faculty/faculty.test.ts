@@ -15,7 +15,7 @@ describe('Faculty API', () => {
     adminToken = adminLogin.body.data.token;
 
     const faculty = await db.faculty.findFirst();
-    const coordinatorUser = await db.user.create({
+    await db.user.create({
       data: {
         email: 'coordinator@test.edu',
         passwordHash: '$2b$10$test',
@@ -25,7 +25,6 @@ describe('Faculty API', () => {
         facultyId: faculty!.id,
       },
     });
-
     const coordinatorLogin = await request(app).post('/api/v1/auth/login').send({
       email: 'coordinator@test.edu',
       password: 'Coordinator@123',

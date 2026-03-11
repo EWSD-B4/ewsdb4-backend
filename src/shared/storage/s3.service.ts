@@ -17,16 +17,27 @@ class S3Service {
   private readonly documentPrefix: string;
 
   constructor() {
-    this.s3Client = new S3Client({
+    const s3Config: any = {
       region: config.aws.region,
       credentials: {
         accessKeyId: config.aws.accessKeyId,
         secretAccessKey: config.aws.secretAccessKey,
       },
-    });
+    };
+
+    // Support for MinIO/Local S3 (for development)
+    if (process.env.AWS_ENDPOINT) {
+      s3Config.endpoint = process.env.AWS_ENDPOINT;
+      s3Config.forcePathStyle = process.env.S3_FORCE_PATH_STYLE === 'true';
+    }
+
+    this.s3Client = new S3Client(s3Config);
     this.bucketName = config.aws.s3BucketName;
     this.documentPrefix = config.aws.s3DocumentPrefix;
-    logger.info('S3Service initialized');
+    logger.info('S3Service initialized', { 
+      endpoint: process.env.AWS_ENDPOINT || 'AWS S3',
+      bucket: this.bucketName 
+    });
   }
 
   async uploadFile(

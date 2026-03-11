@@ -3,28 +3,24 @@ import app from '@/app';
 import { db } from '@/shared/database';
 
 describe('Contribution API', () => {
-  let adminToken: string;
   let studentToken: string;
   let coordinatorToken: string;
   let studentId: number;
-  let coordinatorId: number;
   let facultyId: number;
   let academicYearId: number;
   let contributionId: number;
   let termsId: number;
 
   beforeAll(async () => {
-    const adminLogin = await request(app).post('/api/v1/auth/login').send({
+    await request(app).post('/api/v1/auth/login').send({
       email: 'admin@ewsd.edu',
       password: 'Admin@123',
     });
-    adminToken = adminLogin.body.data.token;
-
-    const faculty = await db.faculty.findFirst({ where: { isActive: true } });
+    const faculty = await db.faculty.findFirst({where: {isActive: true}});
     facultyId = faculty!.id;
 
     const academicYear = await db.academicYear.findFirst({
-      where: { isActive: true },
+      where: {isActive: true},
     });
     academicYearId = academicYear!.id;
 
@@ -44,24 +40,21 @@ describe('Contribution API', () => {
         passwordHash: '$2b$10$test',
         firstName: 'Contribution',
         lastName: 'Student',
-        roleId: (await db.role.findFirst({ where: { roleCode: 'STUDENT' } }))!.id,
+        roleId: (await db.role.findFirst({where: {roleCode: 'STUDENT'}}))!.id,
         facultyId,
       },
     });
     studentId = studentUser.id;
-
-    const coordinatorUser = await db.user.create({
+    await db.user.create({
       data: {
         email: 'contrib-coordinator@test.edu',
         passwordHash: '$2b$10$test',
         firstName: 'Contribution',
         lastName: 'Coordinator',
-        roleId: (await db.role.findFirst({ where: { roleCode: 'COORDINATOR' } }))!.id,
+        roleId: (await db.role.findFirst({where: {roleCode: 'COORDINATOR'}}))!.id,
         facultyId,
       },
     });
-    coordinatorId = coordinatorUser.id;
-
     const studentLogin = await request(app).post('/api/v1/auth/login').send({
       email: 'contrib-student@test.edu',
       password: 'Student@123',

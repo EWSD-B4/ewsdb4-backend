@@ -1,0 +1,215 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: ewsdb4-api-local
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - PRISMA_MIGRATE_ON_START=1
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=ewsdb4_user
+      - DB_PASSWORD=ewsdb4_password
+      - DB_NAME=ewsdb4_db
+      - DATABASE_URL=mysql://ewsdb4_user:ewsdb4_password@mysql:3306/ewsdb4_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - JWT_EXPIRES_IN=7d
+      - RESEND_API_KEY=re_CEa5X9C7_MsjAK5dBbHYGVeiD15bJhhpf
+      - EMAIL_FROM=hklynn1@kmd.edu.mm
+      - APP_URL=http://localhost:3000
+      # MinIO (Local S3) Configuration
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_ENDPOINT=http://minio:9000
+      - S3_BUCKET_NAME=ewsdb4-documents
+      - S3_DOCUMENT_PREFIX=documents/
+      - S3_FORCE_PATH_STYLE=true
+      # RabbitMQ Configuration
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - RABBITMQ_QUEUE_NAME=document-processing
+      - RABBITMQ_EXCHANGE_NAME=documents
+      - RABBITMQ_ROUTING_KEY=document.upload
+      - RABBITMQ_DLX_EXCHANGE_NAME=documents-dlx
+      - RABBITMQ_DLQ_NAME=document-processing-dlq
+      - RABBITMQ_DLQ_ROUTING_KEY=document.failed
+      - RABBITMQ_MAX_RETRIES=3
+      - RABBITMQ_RETRY_DELAY_MS=60000
+    volumes:
+      - ./src:/app/src
+      - ./prisma:/app/prisma
+      - /app/node_modules
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - app-network
+    command: npm run dev
+
+  mysql:
+    image: mysql:8.0
+    container_name: ewsdb4-mysql-local
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=ewsdb4_db
+      - MYSQL_USER=ewsdb4_user
+      - MYSQL_PASSWORD=ewsdb4_password
+    ports:
+      - '3307:3306'
+    volumes:
+      - mysql-data-local:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-prootpassword']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ewsdb4-redis-local
+    restart: unless-stopped
+    ports:
+      - '6380:6379'
+    volumes:
+      - redis-data-local:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: ewsdb4-rabbitmq-local
+    restart: unless-stopped
+    ports:
+      - '5673:5672'
+      - '15673:15672'
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq-data-local:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', 'ping']
+      interval: 10s
+      timeout: 15s
+      retries: 10
+      start_period: 90s
+    networks:
+      - app-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: ewsdb4-minio-local
+    restart: unless-stopped
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio-data-local:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  minio-setup:
+    image: minio/mc:latest
+    container_name: ewsdb4-minio-setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      mc mb myminio/ewsdb4-documents --ignore-existing;
+      mc anonymous set download myminio/ewsdb4-documents;
+      exit 0;
+      "
+    networks:
+      - app-network
+
+  worker-node:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: ewsdb4-worker-local
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=ewsdb4_user
+      - DB_PASSWORD=ewsdb4_password
+      - DB_NAME=ewsdb4_db
+      - DATABASE_URL=mysql://ewsdb4_user:ewsdb4_password@mysql:3306/ewsdb4_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # MinIO (Local S3) Configuration
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_ENDPOINT=http://minio:9000
+      - S3_BUCKET_NAME=ewsdb4-documents
+      - S3_DOCUMENT_PREFIX=documents/
+      - S3_FORCE_PATH_STYLE=true
+      # RabbitMQ Configuration
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - RABBITMQ_QUEUE_NAME=document-processing
+      - RABBITMQ_EXCHANGE_NAME=documents
+      - RABBITMQ_ROUTING_KEY=document.upload
+      - RABBITMQ_DLX_EXCHANGE_NAME=documents-dlx
+      - RABBITMQ_DLQ_NAME=document-processing-dlq
+      - RABBITMQ_DLQ_ROUTING_KEY=document.failed
+      - RABBITMQ_MAX_RETRIES=3
+      - RABBITMQ_RETRY_DELAY_MS=60000
+    volumes:
+      - ./src:/app/src
+      - /app/node_modules
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - app-network
+    command: npm run worker
+
+volumes:
+  mysql-data-local:
+  redis-data-local:
+  rabbitmq-data-local:
+  minio-data-local:
+
+networks:
+  app-network:
+    driver: bridge

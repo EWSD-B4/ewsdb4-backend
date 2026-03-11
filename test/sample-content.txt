@@ -1,0 +1,90 @@
+===========================================
+SAMPLE CONTENT FOR YOUR TEST DOCX FILE
+===========================================
+
+Copy this content into Microsoft Word, Google Docs, or LibreOffice Writer:
+
+---
+
+# Test Document for DOCX to Markdown Conversion
+
+This document tests the conversion of DOCX files to Markdown format.
+
+## Text Formatting
+
+This paragraph contains **bold text**, *italic text*, and ***bold italic text***.
+
+Regular paragraph with normal text.
+
+## Headings Test
+
+### Level 3 Heading
+#### Level 4 Heading
+##### Level 5 Heading
+
+## Lists
+
+### Unordered List
+- First item
+- Second item
+- Third item with more text
+  - Nested item 1
+  - Nested item 2
+- Fourth item
+
+### Ordered List
+1. First step
+2. Second step
+3. Third step
+4. Fourth step
+
+## Links
+
+Visit [Google](https://www.google.com) or check out [GitHub](https://github.com).
+
+## Images Section
+
+**IMPORTANT: Insert 1-2 images below this line**
+(Copy an image from your computer and paste it here with Ctrl+V or Cmd+V)
+
+[PASTE IMAGE 1 HERE]
+
+[PASTE IMAGE 2 HERE]
+
+## Tables
+
+| Column 1 | Column 2 | Column 3 |
+|----------|----------|----------|
+| Row 1    | Data A   | Value 1  |
+| Row 2    | Data B   | Value 2  |
+| Row 3    | Data C   | Value 3  |
+
+## Code Examples
+
+Inline code example: `const x = 42;`
+
+Code block example:
+```
+function hello() {
+  console.log("Hello World");
+}
+```
+
+## Quotes
+
+> This is a blockquote.
+> It can span multiple lines.
+> - Author Name
+
+## Final Section
+
+This is the final paragraph to test the conversion.
+
+---
+
+INSTRUCTIONS:
+1. Copy all text above
+2. Paste into Word/Google Docs/LibreOffice
+3. Insert 1-2 images (copy-paste from your computer)
+4. Save as: test/sample.docx
+5. Run: npm run test:docx

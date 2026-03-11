@@ -54,3 +54,6 @@ Thumbs.db
 .eslintcache
 /docs/*
 /src/generated/prisma
+
+*.md
+*postman*

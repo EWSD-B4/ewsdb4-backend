@@ -5,6 +5,7 @@ import { DocumentStatus } from '@/modules/document/document.types';
 import logger from '@/shared/logger';
 import mammoth from 'mammoth';
 import { Try } from '@/shared/utils/Try';
+import TurndownService from 'turndown';
 
 class DocumentProcessor {
   async start(): Promise<void> {
@@ -19,109 +20,136 @@ class DocumentProcessor {
   }
 
   private async processDocument(message: DocumentMessage): Promise<void> {
-    const { documentId, s3Key, contentType } = message;
+    const { contributionFileId, contributionId, s3Key, contentType } = message;
 
     await Try.execute(async () => {
-      logger.info(`Processing document: ${documentId}`);
+      logger.info(`Processing contribution file: ${contributionFileId}`);
 
-      await documentService.updateDocumentStatus(documentId, DocumentStatus.PROCESSING);
+      await documentService.updateFileStatus(contributionFileId, DocumentStatus.PROCESSING);
 
       const fileExists = await s3Service.fileExists(s3Key);
       if (!fileExists) {
         throw new Error('File not found in S3');
       }
 
-      if (contentType.includes('image')) {
-        await this.processImageDocument(documentId);
-      } else {
+      // Only process DOCX files (images are already uploaded)
+      if (contentType.includes('word') || contentType.includes('msword')) {
         const fileBuffer = await s3Service.downloadFile(s3Key);
-
-        if (contentType.includes('html')) {
-          await this.processHtmlDocument(fileBuffer, documentId);
-        } else if (contentType.includes('pdf')) {
-          await this.processPdfDocument(fileBuffer, documentId);
-        } else if (contentType.includes('word') || contentType.includes('msword')) {
-          await this.processWordDocument(fileBuffer, documentId);
-        } else {
-          await this.processGenericDocument(fileBuffer, documentId);
-        }
+        await this.processWordDocument(fileBuffer, contributionFileId, contributionId);
+      } else {
+        logger.warn(`Unexpected file type for processing: ${contentType}`);
       }
 
-      await documentService.updateDocumentStatus(documentId, DocumentStatus.COMPLETED);
-      logger.info(`Document processed successfully: ${documentId}`);
+      await documentService.updateFileStatus(contributionFileId, DocumentStatus.COMPLETED);
+      logger.info(`Contribution file processed successfully: ${contributionFileId}`);
     })
       .onFailure(async (error: Error) => {
-        await documentService.updateDocumentStatus(
-          documentId,
+        await documentService.updateFileStatus(
+          contributionFileId,
           DocumentStatus.FAILED,
           error.message || 'Unknown error'
         );
       })
-      .orElseLogWarning(`Error processing document ${documentId}`);
+      .orElseLogWarning(`Error processing contribution file ${contributionFileId}`);
   }
 
-  private async processHtmlDocument(_buffer: Buffer, documentId: string): Promise<void> {
-    logger.info(`Processing HTML document: ${documentId}`);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
 
-  private async processPdfDocument(_buffer: Buffer, documentId: string): Promise<void> {
-    logger.info(`Processing PDF document: ${documentId}`);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-  }
-
-  private async processWordDocument(buffer: Buffer, documentId: string): Promise<void> {
-    logger.info(`Processing Word document: ${documentId}`);
+  private async processWordDocument(
+    buffer: Buffer,
+    contributionFileId: number,
+    contributionId: number
+  ): Promise<void> {
+    logger.info(`Processing Word document: contributionFileId=${contributionFileId}`);
 
     return Try.execute(async () => {
-      const result = await mammoth.convertToHtml({ buffer });
+      const uploadedImages: Array<{
+        contributionFileId: number;
+        s3Key: string;
+        contentType: string;
+      }> = [];
+
+      const result = await mammoth.convertToHtml(
+        { buffer },
+        {
+          convertImage: (mammoth as any).images.inline(async (image: any) => {
+            const contentType: string = image.contentType || 'application/octet-stream';
+            const ext = contentType.includes('/') ? contentType.split('/')[1] : 'bin';
+            const imageIndex = uploadedImages.length + 1;
+            const imageBuffer: Buffer = await image.read();
+
+            // Create image file record in contribution_files
+            const imageFile = await documentService.createContributionFile(
+              contributionId,
+              0, // userId not used in internal method
+              {
+                originalname: `image-${imageIndex}.${ext}`,
+                buffer: imageBuffer,
+                mimetype: contentType,
+                size: imageBuffer.length,
+              } as Express.Multer.File,
+              'image'
+            );
+
+            uploadedImages.push({
+              contributionFileId: imageFile.id,
+              s3Key: imageFile.filePath!,
+              contentType,
+            });
+
+            return {
+              src: imageFile.filePath,
+            };
+          }),
+        }
+      );
 
       const html: string = result.value;
-
       const messages: unknown[] = result.messages;
 
-      if (messages.length > 0) {
-        logger.warn(`Conversion warnings for ${documentId}:`, messages);
-      }
-
-      const htmlKey = `converted/${documentId}.html`;
-      await s3Service.uploadFile(htmlKey, Buffer.from(html, 'utf-8'), 'text/html', {
-        documentId,
-        convertedFrom: 'docx',
+      const turndownService = new TurndownService({
+        codeBlockStyle: 'fenced',
+        emDelimiter: '*',
       });
 
-      const jsonData = {
-        documentId,
-        html,
+      const markdown: string = turndownService.turndown(html);
+
+      if (messages.length > 0) {
+        logger.warn(`Conversion warnings for contributionFileId=${contributionFileId}:`, messages);
+      }
+
+      // Store markdown directly in contribution_files.content_md
+      const manifestData = {
+        contributionFileId,
+        contributionId,
+        markdownS3Key: null, // Markdown stored in DB, not S3
+        images: uploadedImages,
         convertedAt: new Date().toISOString(),
         warnings: messages,
       };
 
-      const jsonKey = `converted/${documentId}.json`;
-      await s3Service.uploadFile(
-        jsonKey,
-        Buffer.from(JSON.stringify(jsonData, null, 2), 'utf-8'),
+      const manifestKey = `contributions/${contributionId}/manifest/${contributionFileId}.json`;
+      const uploadedManifestKey = await s3Service.uploadFile(
+        manifestKey,
+        Buffer.from(JSON.stringify(manifestData, null, 2), 'utf-8'),
         'application/json',
-        { documentId, convertedFrom: 'docx' }
+        {
+          contributionId: contributionId.toString(),
+          contributionFileId: contributionFileId.toString(),
+          convertedFrom: 'docx',
+        }
       );
 
-      await documentService.updateConvertedFiles(documentId, htmlKey, jsonKey);
+      // Update contribution_files with markdown content
+      await documentService.updateConvertedMarkdown(
+        contributionFileId,
+        markdown,
+        uploadedManifestKey
+      );
 
       logger.info(
-        `Word document converted successfully: ${documentId} (HTML: ${htmlKey}, JSON: ${jsonKey})`
+        `Word document converted successfully: contributionFileId=${contributionFileId}, images=${uploadedImages.length}, manifest=${uploadedManifestKey}`
       );
-    }).orElseThrow(`Error converting Word document ${documentId}`);
-  }
-
-  private async processImageDocument(documentId: string): Promise<void> {
-    logger.info(`Image document requires no processing (already stored in S3): ${documentId}`);
-    await documentService.updateDocumentStatus(documentId, DocumentStatus.COMPLETED);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
-
-  private async processGenericDocument(_buffer: Buffer, documentId: string): Promise<void> {
-    logger.info(`Processing generic document: ${documentId}`);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    }).orElseThrow(`Error converting Word document contributionFileId=${contributionFileId}`);
   }
 
   async stop(): Promise<void> {

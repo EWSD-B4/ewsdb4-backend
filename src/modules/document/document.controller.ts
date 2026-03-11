@@ -4,7 +4,7 @@ import documentService from './document.service';
 import { successResponse } from '@/utils/response';
 
 class DocumentController {
-  uploadDocument = asyncHandler(async (req: Request, res: Response) => {
+  uploadContributionFile = asyncHandler(async (req: Request, res: Response) => {
     if (!req.file) {
       return res.status(400).json({
         code: 'VALIDATION_ERROR',
@@ -13,79 +13,75 @@ class DocumentController {
       });
     }
 
-    const userId = req.user!.id;
-    const document = await documentService.uploadDocument(userId, req.file);
+    const userId = parseInt(String(req.user!.id), 10);
+    const contributionId = parseInt(String(req.params.contributionId), 10);
+    const fileType = (req.body.fileType || 'docx') as 'docx' | 'image';
+
+    const file = await documentService.uploadContributionFile(
+      contributionId,
+      userId,
+      req.file,
+      fileType
+    );
 
     return res.status(201).json(
-      successResponse(document, req.requestId || 'unknown', {
-        message: 'Document uploaded successfully and queued for processing',
+      successResponse(file, req.requestId || 'unknown', {
+        message: `${fileType.toUpperCase()} file uploaded successfully${fileType === 'docx' ? ' and queued for processing' : ''}`,
       })
     );
   });
 
-  getUserDocuments = asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.user!.id;
-    const limit = parseInt((req.query.limit as string) || '50', 10);
-    const offset = parseInt((req.query.offset as string) || '0', 10);
+  getContributionFiles = asyncHandler(async (req: Request, res: Response) => {
+    const contributionId = parseInt(String(req.params.contributionId), 10);
 
-    const documents = await documentService.getUserDocuments(userId, limit, offset);
+    const files = await documentService.getContributionFiles(contributionId);
 
     res.json(
       successResponse(
-        {
-          documents,
-          pagination: {
-            limit,
-            offset,
-            total: documents.length,
-          },
-        },
+        { files },
         req.requestId || 'unknown',
-        { message: 'Documents retrieved successfully' }
+        { message: 'Contribution files retrieved successfully' }
       )
     );
   });
 
-  getDocumentById = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string;
-    const userId = req.user!.id;
+  getContributionFileById = asyncHandler(async (req: Request, res: Response) => {
+    const fileId = parseInt(String(req.params.fileId), 10);
 
-    const document = await documentService.getDocumentById(id, userId);
+    const file = await documentService.getContributionFileById(fileId);
 
-    if (!document) {
+    if (!file) {
       return res.status(404).json({
         code: 'NOT_FOUND',
-        message: 'Document not found',
+        message: 'File not found',
         requestId: req.requestId || 'unknown',
       });
     }
 
     return res.json(
-      successResponse(document, req.requestId || 'unknown', {
-        message: 'Document retrieved successfully',
+      successResponse(file, req.requestId || 'unknown', {
+        message: 'File retrieved successfully',
       })
     );
   });
 
-  downloadDocument = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string;
-    const userId = req.user!.id;
+  downloadContributionFile = asyncHandler(async (req: Request, res: Response) => {
+    const fileId = parseInt(String(req.params.fileId), 10);
 
-    const { buffer, document } = await documentService.downloadDocument(id, userId);
+    const { buffer, file } = await documentService.downloadContributionFile(fileId);
 
-    res.setHeader('Content-Type', document.contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${document.originalName}"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
     res.setHeader('Content-Length', buffer.length);
 
     res.send(buffer);
   });
 
   getDownloadUrl = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string;
-    const userId = req.user!.id;
+    const fileId = parseInt(String(req.params.fileId), 10);
     const expiresIn = parseInt((req.query.expiresIn as string) || '3600', 10);
 
-    const downloadUrl = await documentService.getDownloadUrl(id, userId, expiresIn);
+    const downloadUrl = await documentService.getDownloadUrl(fileId, expiresIn);
 
     res.json(
       successResponse(
@@ -99,43 +95,30 @@ class DocumentController {
     );
   });
 
-  deleteDocument = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string;
-    const userId = req.user!.id;
+  deleteContributionFile = asyncHandler(async (req: Request, res: Response) => {
+    const fileId = parseInt(String(req.params.fileId), 10);
 
-    await documentService.deleteDocument(id, userId);
+    await documentService.deleteContributionFile(fileId);
 
     res.json(
       successResponse({ success: true }, req.requestId || 'unknown', {
-        message: 'Document deleted successfully',
+        message: 'File deleted successfully',
       })
     );
   });
 
-  getConvertedHtml = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string;
-    const userId = req.user!.id;
+  getConvertedMarkdown = asyncHandler(async (req: Request, res: Response) => {
+    const fileId = parseInt(String(req.params.fileId), 10);
 
-    const { buffer, document } = await documentService.getConvertedDocument(id, userId, 'html');
+    const markdown = await documentService.getConvertedMarkdown(fileId);
 
-    res.setHeader('Content-Type', 'text/html');
-    res.setHeader('Content-Disposition', `inline; filename="${document.originalName}.html"`);
-    res.setHeader('Content-Length', buffer.length);
-
-    res.send(buffer);
-  });
-
-  getConvertedJson = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string;
-    const userId = req.user!.id;
-
-    const { buffer, document } = await documentService.getConvertedDocument(id, userId, 'json');
-
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `inline; filename="${document.originalName}.json"`);
-    res.setHeader('Content-Length', buffer.length);
-
-    res.send(buffer);
+    res.json(
+      successResponse(
+        { markdown },
+        req.requestId || 'unknown',
+        { message: 'Converted markdown retrieved successfully' }
+      )
+    );
   });
 }
 

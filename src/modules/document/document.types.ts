@@ -1,19 +1,16 @@
-export interface Document {
-  id: string;
-  userId: string;
-  fileName: string;
-  originalName: string;
-  s3Key: string;
-  contentType: string;
-  fileSize: number;
-  status: DocumentStatus;
+export interface ContributionFileData {
+  id: number;
+  contributionId: number;
+  fileType: string | null;
+  originalName: string | null;
+  storedName: string | null;
+  filePath: string | null;
+  contentMd: string | null;
+  fileSize: bigint | null;
+  status?: DocumentStatus;
   processingError?: string;
-  convertedHtmlKey?: string;
-  convertedJsonKey?: string;
-  uploadedAt: Date;
-  processedAt?: Date;
   createdAt: Date;
-  updatedAt: Date;
+  uploadedAt: Date | null;
 }
 
 export enum DocumentStatus {
@@ -23,17 +20,34 @@ export enum DocumentStatus {
   FAILED = 'failed',
 }
 
-export interface UploadDocumentRequest {
+export interface UploadContributionFileRequest {
+  contributionId: number;
   file: Express.Multer.File;
+  fileType: 'docx' | 'image';
 }
 
-export interface DocumentResponse {
-  id: string;
-  fileName: string;
-  originalName: string;
-  contentType: string;
-  fileSize: number;
+export interface ContributionFileResponse {
+  id: number;
+  contributionId: number;
+  fileType: string | null;
+  originalName: string | null;
+  storedName: string | null;
+  filePath: string | null;
+  fileSize: bigint | null;
   status: DocumentStatus;
-  uploadedAt: Date;
-  processedAt?: Date;
+  uploadedAt: Date | null;
+  createdAt: Date;
+}
+
+export interface ConversionManifest {
+  contributionFileId: number;
+  contributionId: number;
+  markdownS3Key: string;
+  images: Array<{
+    contributionFileId: number;
+    s3Key: string;
+    contentType: string;
+  }>;
+  convertedAt: string;
+  warnings: unknown[];
 }

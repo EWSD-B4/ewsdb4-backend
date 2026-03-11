@@ -32,13 +32,34 @@ const upload = multer({
   },
 });
 
-router.post('/upload', authenticate, upload.single('file'), documentController.uploadDocument);
-router.get('/', authenticate, documentController.getUserDocuments);
-router.get('/:id', authenticate, documentController.getDocumentById);
-router.get('/:id/download', authenticate, documentController.downloadDocument);
-router.get('/:id/download-url', authenticate, documentController.getDownloadUrl);
-router.get('/:id/converted/html', authenticate, documentController.getConvertedHtml);
-router.get('/:id/converted/json', authenticate, documentController.getConvertedJson);
-router.delete('/:id', authenticate, documentController.deleteDocument);
+// Upload file to contribution (DOCX or image)
+router.post(
+  '/contributions/:contributionId/files',
+  authenticate,
+  upload.single('file'),
+  documentController.uploadContributionFile
+);
+
+// Get all files for a contribution
+router.get(
+  '/contributions/:contributionId/files',
+  authenticate,
+  documentController.getContributionFiles
+);
+
+// Get specific file by ID
+router.get('/files/:fileId', authenticate, documentController.getContributionFileById);
+
+// Download file
+router.get('/files/:fileId/download', authenticate, documentController.downloadContributionFile);
+
+// Get signed download URL
+router.get('/files/:fileId/download-url', authenticate, documentController.getDownloadUrl);
+
+// Get converted markdown (for DOCX files)
+router.get('/files/:fileId/markdown', authenticate, documentController.getConvertedMarkdown);
+
+// Delete file
+router.delete('/files/:fileId', authenticate, documentController.deleteContributionFile);
 
 export default router;
