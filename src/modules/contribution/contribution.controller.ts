@@ -3,6 +3,7 @@ import { asyncHandler } from '@/middleware/asyncHandler';
 import contributionService from './contribution.service';
 import { successResponse } from '@/utils/response';
 import { db as prisma } from '@/shared/database';
+import {AppError} from "@/middleware/errorHandler";
 
 class ContributionController {
   listCoordinator = asyncHandler(async (req: Request, res: Response) => {
@@ -57,7 +58,7 @@ class ContributionController {
     );
   });
 
-  createStudent = asyncHandler(async (req: Request, res: Response) => {
+  submit = asyncHandler(async (req: Request, res: Response) => {
     const facultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : undefined;
     if (!facultyId) {
       res.status(403).json({
@@ -171,6 +172,186 @@ class ContributionController {
     res.json(
       successResponse(contribution, req.requestId || 'unknown', {
         message: 'Contribution retrieved',
+      })
+    );
+  });
+
+  getStudentContributions = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) {
+      throw new AppError('Authentication required', 401, 'UNAUTHORIZED');
+    }
+
+    const limitRaw = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+    const offsetRaw = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 100 ? limitRaw : 20;
+    const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
+
+    const userId = Number(req.user.id);
+    const contributions = await contributionService.getContributionsByStudentId(userId, limit, offset);
+    res.json(
+        successResponse(contributions, req.requestId || 'unknown', {
+          message: 'Contribution retrieved',
+        })
+    );
+  });
+
+  updateStatus = asyncHandler(async (req: Request, res: Response) => {
+    const facultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : undefined;
+    if (!facultyId) {
+      res.status(403).json({
+        success: false,
+        message: 'Faculty assignment required',
+        ...(process.env.NODE_ENV === 'development'
+          ? { stack: new Error('Faculty assignment required').stack }
+          : {}),
+      });
+      return;
+    }
+
+    const contributionId = parseInt(String(req.params.id), 10);
+    const { status } = req.body;
+
+    if (!status) {
+      res.status(400).json({
+        success: false,
+        message: 'Status is required',
+        ...(process.env.NODE_ENV === 'development'
+          ? { stack: new Error('Status is required').stack }
+          : {}),
+      });
+      return;
+    }
+
+    const updated = await contributionService.updateContributionStatus(
+      contributionId,
+      facultyId,
+      status
+    );
+
+    res.json(
+      successResponse(updated, req.requestId || 'unknown', {
+        message: `Contribution status updated to ${status}`,
+      })
+    );
+  });
+
+  selectContribution = asyncHandler(async (req: Request, res: Response) => {
+    const facultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : undefined;
+    if (!facultyId) {
+      res.status(403).json({
+        success: false,
+        message: 'Faculty assignment required',
+        ...(process.env.NODE_ENV === 'development'
+          ? { stack: new Error('Faculty assignment required').stack }
+          : {}),
+      });
+      return;
+    }
+
+    const contributionId = parseInt(String(req.params.id), 10);
+    const coordinatorId = parseInt(String(req.user!.id), 10);
+    const { comment } = req.body;
+
+    if (!comment) {
+      res.status(400).json({
+        success: false,
+        message: 'Comment is required when selecting a contribution',
+        ...(process.env.NODE_ENV === 'development'
+          ? { stack: new Error('Comment is required').stack }
+          : {}),
+      });
+      return;
+    }
+
+    const result = await contributionService.selectContribution(
+      contributionId,
+      coordinatorId,
+      facultyId,
+      comment
+    );
+
+    res.json(
+      successResponse(result, req.requestId || 'unknown', {
+        message: 'Contribution selected successfully',
+      })
+    );
+  });
+
+  rejectContribution = asyncHandler(async (req: Request, res: Response) => {
+    const facultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : undefined;
+    if (!facultyId) {
+      res.status(403).json({
+        success: false,
+        message: 'Faculty assignment required',
+        ...(process.env.NODE_ENV === 'development'
+          ? { stack: new Error('Faculty assignment required').stack }
+          : {}),
+      });
+      return;
+    }
+
+    const contributionId = parseInt(String(req.params.id), 10);
+    const coordinatorId = parseInt(String(req.user!.id), 10);
+    const { comment } = req.body;
+
+    if (!comment) {
+      res.status(400).json({
+        success: false,
+        message: 'Comment is required when rejecting a contribution',
+        ...(process.env.NODE_ENV === 'development'
+          ? { stack: new Error('Comment is required').stack }
+          : {}),
+      });
+      return;
+    }
+
+    const result = await contributionService.rejectContribution(
+      contributionId,
+      coordinatorId,
+      facultyId,
+      comment
+    );
+
+    res.json(
+      successResponse(result, req.requestId || 'unknown', {
+        message: 'Contribution rejected successfully',
+      })
+    );
+  });
+
+  updateContribution = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) {
+      throw new AppError('Authentication required', 401, 'UNAUTHORIZED');
+    }
+
+    const contributionId = parseInt(String(req.params.id), 10);
+    const userId = parseInt(String(req.user.id), 10);
+    const { title, contentMd } = req.body;
+
+    if (!title && !contentMd) {
+      res.status(400).json({
+        success: false,
+        message: 'At least one field (title or contentMd) is required',
+        ...(process.env.NODE_ENV === 'development'
+          ? { stack: new Error('No fields to update').stack }
+          : {}),
+      });
+      return;
+    }
+
+    const updateData: { title?: string; contentMd?: string } = {};
+    if (title) updateData.title = title;
+    if (contentMd) updateData.contentMd = contentMd;
+
+    const updated = await contributionService.updateContribution(
+      contributionId,
+      userId,
+      updateData
+    );
+
+    res.json(
+      successResponse(updated, req.requestId || 'unknown', {
+        message: 'Contribution updated successfully',
       })
     );
   });

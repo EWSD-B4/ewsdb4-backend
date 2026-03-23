@@ -4,9 +4,11 @@ export interface User {
   name: string;
   createdAt: Date;
   updatedAt: Date;
+  is_active: Boolean;
   role: string;
   role_id: number;
   faculty: string;
+  faculty_id?: number;
 }
 
 export interface CreateUserDTO {

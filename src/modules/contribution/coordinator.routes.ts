@@ -8,18 +8,41 @@ import { ROLES } from '@/constants/roles';
 const router = Router();
 
 router.get(
-  '/contributions',
+  '/',
   authenticate,
-  authorize(ROLES.COORDINATOR),
+  authorize(ROLES.MANAGER, ROLES.COORDINATOR),
   requireFacultyIfRoleNeedsIt,
   contributionController.listCoordinator
 );
 router.get(
-  '/contributions/:id',
+  '/:id',
   authenticate,
   authorize(ROLES.COORDINATOR),
   requireFacultyIfRoleNeedsIt,
   contributionController.getCoordinator
+);
+router.put(
+  '/:id/status',
+  authenticate,
+  authorize(ROLES.COORDINATOR),
+  requireFacultyIfRoleNeedsIt,
+  contributionController.updateStatus
+);
+
+router.post(
+  '/:id/select',
+  authenticate,
+  authorize(ROLES.COORDINATOR),
+  requireFacultyIfRoleNeedsIt,
+  contributionController.selectContribution
+);
+
+router.post(
+  '/:id/reject',
+  authenticate,
+  authorize(ROLES.COORDINATOR),
+  requireFacultyIfRoleNeedsIt,
+  contributionController.rejectContribution
 );
 
 export default router;

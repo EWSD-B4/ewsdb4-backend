@@ -75,6 +75,25 @@ class ContributionService {
     imageFiles: Express.Multer.File[] = []
   ) {
     return Try.execute(async () => {
+      // Check academic year closure date for new submissions
+      const academicYear = await prisma.academicYear.findUnique({
+        where: { id: academicYearId },
+      });
+
+      if (!academicYear) {
+        throw new NotFoundError('Academic year not found');
+      }
+
+      const now = new Date();
+      
+      // Check if new submissions are closed
+      if (academicYear.closureDate && now > academicYear.closureDate) {
+        throw new BadRequestError(
+          `New contributions are no longer accepted for ${academicYear.yearName}. ` +
+          `Closure date was ${academicYear.closureDate.toISOString().split('T')[0]}.`
+        );
+      }
+
       // Validate DOCX file
       const allowedDocxMimeTypes = [
         'application/msword',
@@ -209,6 +228,292 @@ class ContributionService {
         images: uploadedImages,
       };
     }).orElseThrow('Error creating student contribution');
+  }
+
+  async getContributionsByStudentId(studentId: number, limit: number, offset: number) {
+    const where = { userId: studentId };
+    const [items, total] = await Promise.all([
+      prisma.contribution.findMany({
+        where,
+        skip: offset,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.contribution.count({ where }),
+    ]);
+
+    return { items, total, limit, offset };
+  }
+
+  async updateContributionStatus(
+    contributionId: number,
+    facultyId: number,
+    newStatus: string
+  ) {
+    return Try.execute(async () => {
+      // Validate status
+      const validStatuses = ['draft', 'submitted', 'under_review', 'selected', 'rejected', 'published'];
+      if (!validStatuses.includes(newStatus)) {
+        throw new BadRequestError(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+      }
+
+      // Check if contribution exists and belongs to coordinator's faculty
+      const contribution = await prisma.contribution.findFirst({
+        where: {
+          id: contributionId,
+          facultyId,
+        },
+      });
+
+      if (!contribution) {
+        throw new NotFoundError('Contribution not found or does not belong to your faculty');
+      }
+
+      // Update status
+      const updated = await prisma.contribution.update({
+        where: { id: contributionId },
+        data: {
+          status: newStatus,
+          publishedAt: newStatus === 'published' ? new Date() : contribution.publishedAt,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          academicYear: {
+            select: {
+              id: true,
+              yearName: true,
+            },
+          },
+          faculty: {
+            select: {
+              id: true,
+              facultyName: true,
+              facultyCode: true,
+            },
+          },
+        },
+      });
+
+      logger.info(`Contribution ${contributionId} status updated to ${newStatus} by faculty ${facultyId}`);
+
+      return updated;
+    }).orElseThrow('Error updating contribution status');
+  }
+
+  async selectContribution(
+    contributionId: number,
+    coordinatorId: number,
+    facultyId: number,
+    comment: string
+  ) {
+    return Try.execute(async () => {
+      // Check if contribution exists and belongs to coordinator's faculty
+      const contribution = await prisma.contribution.findFirst({
+        where: {
+          id: contributionId,
+          facultyId,
+        },
+      });
+
+      if (!contribution) {
+        throw new NotFoundError('Contribution not found or does not belong to your faculty');
+      }
+
+      // Update status to selected and create comment in a transaction
+      const result = await prisma.$transaction(async (tx) => {
+        const updated = await tx.contribution.update({
+          where: { id: contributionId },
+          data: {
+            status: 'selected',
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            academicYear: {
+              select: {
+                id: true,
+                yearName: true,
+              },
+            },
+            faculty: {
+              select: {
+                id: true,
+                facultyName: true,
+                facultyCode: true,
+              },
+            },
+          },
+        });
+
+        const createdComment = await tx.comment.create({
+          data: {
+            contributionId,
+            userId: coordinatorId,
+            content: comment,
+          },
+        });
+
+        return { contribution: updated, comment: createdComment };
+      });
+
+      logger.info(`Contribution ${contributionId} selected by coordinator ${coordinatorId}`);
+
+      return result;
+    }).orElseThrow('Error selecting contribution');
+  }
+
+  async rejectContribution(
+    contributionId: number,
+    coordinatorId: number,
+    facultyId: number,
+    comment: string
+  ) {
+    return Try.execute(async () => {
+      // Check if contribution exists and belongs to coordinator's faculty
+      const contribution = await prisma.contribution.findFirst({
+        where: {
+          id: contributionId,
+          facultyId,
+        },
+      });
+
+      if (!contribution) {
+        throw new NotFoundError('Contribution not found or does not belong to your faculty');
+      }
+
+      // Update status to rejected and create comment in a transaction
+      const result = await prisma.$transaction(async (tx) => {
+        const updated = await tx.contribution.update({
+          where: { id: contributionId },
+          data: {
+            status: 'rejected',
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            academicYear: {
+              select: {
+                id: true,
+                yearName: true,
+              },
+            },
+            faculty: {
+              select: {
+                id: true,
+                facultyName: true,
+                facultyCode: true,
+              },
+            },
+          },
+        });
+
+        const createdComment = await tx.comment.create({
+          data: {
+            contributionId,
+            userId: coordinatorId,
+            content: comment,
+          },
+        });
+
+        return { contribution: updated, comment: createdComment };
+      });
+
+      logger.info(`Contribution ${contributionId} rejected by coordinator ${coordinatorId}`);
+
+      return result;
+    }).orElseThrow('Error rejecting contribution');
+  }
+
+  async updateContribution(
+    contributionId: number,
+    userId: number,
+    updateData: { title?: string; contentMd?: string }
+  ) {
+    return Try.execute(async () => {
+      // Check if contribution exists and belongs to the user
+      const contribution = await prisma.contribution.findFirst({
+        where: {
+          id: contributionId,
+          userId,
+        },
+        include: {
+          academicYear: true,
+        },
+      });
+
+      if (!contribution) {
+        throw new NotFoundError('Contribution not found or you do not have permission to update it');
+      }
+
+      // Check final closure date - no updates allowed after this date
+      const now = new Date();
+      if (contribution.academicYear.closureFinalDate && now > contribution.academicYear.closureFinalDate) {
+        throw new BadRequestError(
+          `Updates are no longer allowed for ${contribution.academicYear.yearName}. ` +
+          `Final closure date was ${contribution.academicYear.closureFinalDate.toISOString().split('T')[0]}.`
+        );
+      }
+
+      // Only allow updates if status is draft or rejected
+      if (contribution.status !== 'draft' && contribution.status !== 'rejected') {
+        throw new BadRequestError('You can only update contributions with draft or rejected status');
+      }
+
+      // Update contribution
+      const updated = await prisma.contribution.update({
+        where: { id: contributionId },
+        data: {
+          ...updateData,
+          updatedAt: new Date(),
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          academicYear: {
+            select: {
+              id: true,
+              yearName: true,
+            },
+          },
+          faculty: {
+            select: {
+              id: true,
+              facultyName: true,
+              facultyCode: true,
+            },
+          },
+        },
+      });
+
+      logger.info(`Contribution ${contributionId} updated by user ${userId}`);
+
+      return updated;
+    }).orElseThrow('Error updating contribution');
   }
 }
 

@@ -7,8 +7,8 @@ export interface RegisterDTO {
   email: string;
   name: string;
   password: string;
-  role_id?: number;
-  faculty_id?: number;
+  roleId?: number;
+  facultyId?: number;
 }
 
 export interface AuthResponse {
@@ -27,6 +27,7 @@ export interface JWTPayload {
   userId: string;
   email: string;
   role: string;
+  facultyId: number;
 }
 
 export interface UpdatePasswordDTO {

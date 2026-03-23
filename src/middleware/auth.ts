@@ -3,6 +3,7 @@ import { AppError } from './errorHandler';
 import { verifyToken } from '@/utils/jwt';
 import { asyncHandler } from './asyncHandler';
 import cache from '@/shared/cache/redis';
+import logger from "@/shared/logger";
 
 export const authenticate = asyncHandler(
   async (req: Request, _res: Response, next: NextFunction) => {
@@ -37,7 +38,10 @@ export const authenticate = asyncHandler(
       id: decoded.userId,
       email: decoded.email,
       role: String(decoded.role).toUpperCase(),
+      facultyId: decoded.facultyId
     };
+
+    logger.info("User decoded successfully.", req.user);
 
     next();
   }

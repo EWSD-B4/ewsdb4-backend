@@ -37,7 +37,7 @@ const upload = multer({
 });
 
 router.post(
-  '/contributions',
+  '/contributions/submit',
   authenticate,
   authorize(ROLES.STUDENT),
   requireFacultyIfRoleNeedsIt,
@@ -45,7 +45,23 @@ router.post(
     { name: 'docx', maxCount: 1 },
     { name: 'images', maxCount: 5 }
   ]),
-  contributionController.createStudent
+  contributionController.submit
+);
+
+router.get(
+  '/contributions',
+  authenticate,
+  authorize(ROLES.STUDENT),
+  requireFacultyIfRoleNeedsIt,
+  contributionController.getStudentContributions
+);
+
+router.put(
+  '/contributions/:id',
+  authenticate,
+  authorize(ROLES.STUDENT),
+  requireFacultyIfRoleNeedsIt,
+  contributionController.updateContribution
 );
 
 export default router;

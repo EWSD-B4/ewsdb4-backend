@@ -19,7 +19,7 @@ router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/documents', documentRoutes);
 router.use('/admin', adminRoutes);
-router.use('/coordinator', coordinatorRoutes);
+router.use('/contributions', coordinatorRoutes);
 router.use('/student', studentRoutes);
 router.use('/guest', guestRoutes);
 router.use('/reports', reportRoutes);

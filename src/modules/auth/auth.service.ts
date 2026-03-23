@@ -40,8 +40,8 @@ class AuthService {
         email: data.email,
         name: data.name,
         password: hashedPassword,
-        role_id: data.role_id ?? 1,
-        faculty_id: data.faculty_id ?? 1,
+        role_id: data.roleId ?? 1,
+        faculty_id: data.facultyId ?? 1,
       })
     ).orElseThrow(
       'Failed to create user',
@@ -52,6 +52,7 @@ class AuthService {
       userId: user.id,
       email: user.email,
       role: user.role,
+      facultyId: user.faculty_id ?? 1
     });
 
     await cache.set(`auth:state:user:${user.id}`, 'logged_in');
@@ -87,6 +88,7 @@ class AuthService {
       userId: user.id,
       email: user.email,
       role: user.role,
+      facultyId: user.faculty_id ?? 1,
     });
 
     await cache.set(`auth:state:user:${user.id}`, 'logged_in');

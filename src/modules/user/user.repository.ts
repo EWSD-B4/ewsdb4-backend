@@ -10,6 +10,7 @@ class UserRepository {
         firstName: true,
         lastName: true,
         createdAt: true,
+        isActive: true,
         updatedAt: true,
         role: {
           select: {
@@ -31,6 +32,7 @@ class UserRepository {
       name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      is_active: user.isActive,
       role: user.role.roleCode,
       role_id: user.role.id,
       faculty: user.faculty?.facultyName || 'N/A',
@@ -47,6 +49,7 @@ class UserRepository {
         lastName: true,
         createdAt: true,
         updatedAt: true,
+        isActive: true,
         role: {
           select: {
             id: true,
@@ -69,6 +72,7 @@ class UserRepository {
       name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      is_active: user.isActive,
       role: user.role.roleCode,
       role_id: user.role.id,
       faculty: user.faculty?.facultyName || 'N/A',
@@ -85,6 +89,7 @@ class UserRepository {
         lastName: true,
         createdAt: true,
         updatedAt: true,
+        isActive: true,
         role: {
           select: {
             id: true,
@@ -107,6 +112,7 @@ class UserRepository {
       name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      is_active: user.isActive,
       role: user.role.roleCode,
       role_id: user.role.id,
       faculty: user.faculty?.facultyName || 'N/A',
@@ -124,6 +130,7 @@ class UserRepository {
         passwordHash: true,
         createdAt: true,
         updatedAt: true,
+        isActive: true,
         role: {
           select: {
             id: true,
@@ -148,9 +155,11 @@ class UserRepository {
       password: user.passwordHash,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      is_active: user.isActive,
       role: user.role.roleCode,
       role_id: user.role.id,
       faculty: user.faculty?.facultyName || 'N/A',
+      faculty_id: user.faculty?.id,
     };
   }
 
@@ -174,6 +183,7 @@ class UserRepository {
         lastName: true,
         createdAt: true,
         updatedAt: true,
+        isActive: true,
         role: {
           select: {
             id: true,
@@ -194,6 +204,7 @@ class UserRepository {
       name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      is_active: user.isActive,
       role: user.role.roleCode,
       role_id: user.role.id,
       faculty: user.faculty?.facultyName || 'N/A',
@@ -236,6 +247,7 @@ class UserRepository {
         lastName: true,
         createdAt: true,
         updatedAt: true,
+        isActive: true,
         role: {
           select: {
             id: true,
@@ -256,6 +268,7 @@ class UserRepository {
       name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      is_active: user.isActive,
       role: user.role.roleCode,
       role_id: user.role.id,
       faculty: user.faculty?.facultyName || 'N/A',

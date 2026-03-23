@@ -1,4 +1,4 @@
-.PHONY: help install dev build start test lint format clean docker-build docker-up docker-down docker-restart docker-rebuild docker-logs local-up local-down local-logs local-restart local-clean local-rebuild
+.PHONY: help install dev build start test lint format clean docker-build docker-up docker-down docker-restart docker-rebuild docker-logs local-up local-down local-logs local-restart local-clean local-rebuild local-rebuild-app
 
 help:
 	@echo "Available commands:"
@@ -34,6 +34,7 @@ help:
 	@echo "  make local-restart  - Restart local stack"
 	@echo "  make local-clean    - Stop and remove all local data"
 	@echo "  make local-rebuild  - Rebuild local stack from scratch"
+	@echo "  make local-rebuild-app - Rebuild app service only"
 
 install:
 	npm install
@@ -129,3 +130,8 @@ local-rebuild:
 	docker-compose -f docker-compose.local.yml build --no-cache
 	docker-compose -f docker-compose.local.yml up -d
 	@echo "Local stack rebuilt and started!"
+
+local-rebuild-app:
+	@echo "Rebuilding app service..."
+	docker-compose -f docker-compose.local.yml up -d --build app
+	@echo "App rebuilt!"
