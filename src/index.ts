@@ -1,12 +1,13 @@
 import app from './app';
 import config from '@/config';
-import { database } from '@/shared/database';
+import { database, mongodb } from '@/shared/database';
 import cache from '@/shared/cache/redis';
 import logger from '@/shared/logger';
 
 const startServer = async () => {
   try {
     await database.connect();
+    await mongodb.connect();
     await cache.connect();
 
     const server = app.listen(config.port, () => {
@@ -23,6 +24,7 @@ const startServer = async () => {
 
           try {
             await database.disconnect();
+            await mongodb.disconnect();
             await cache.disconnect();
             logger.info('All connections closed. Exiting process.');
             process.exit(0);

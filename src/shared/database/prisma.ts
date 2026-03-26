@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import logger from '@/shared/logger';
 
@@ -18,6 +18,11 @@ const prismaClientSingleton = () => {
     password: url.password,
     database: url.pathname.slice(1),
     connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '10'),
+    acquireTimeout: 10000,
+    connectTimeout: 5000,
+    idleTimeout: 30000,
+    keepAliveDelay: 10000,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : false,
   });
   
   return new PrismaClient({
@@ -40,6 +45,11 @@ const prismaClientSingleton = () => {
         level: 'warn',
       },
     ],
+    transactionOptions: {
+      maxWait: 5000,
+      timeout: 10000,
+      isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+    },
   });
 };
 

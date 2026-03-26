@@ -113,6 +113,7 @@ model ContributionFile {
   filePath        String?      @map("file_path") @db.VarChar(500)
   contentMd       String?      @map("content_md") @db.Text
   fileSize        BigInt?      @map("file_size")
+  isExtracted     Boolean      @default(false) @map("is_extracted")
   createdAt       DateTime     @default(now()) @map("created_at")
   uploadedAt      DateTime?    @map("uploaded_at")
 
