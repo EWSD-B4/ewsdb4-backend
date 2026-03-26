@@ -132,6 +132,6 @@ local-rebuild:
 	@echo "Local stack rebuilt and started!"
 
 local-rebuild-app:
-	@echo "Rebuilding app service..."
-	docker-compose -f docker-compose.local.yml up -d --build app
-	@echo "App rebuilt!"
+	@echo "Rebuilding app and worker services..."
+	docker-compose -f docker-compose.local.yml up -d --build app worker-node
+	@echo "App and worker rebuilt!"

@@ -41,7 +41,7 @@ export const requireFacultyIfRoleNeedsIt = async (
     return next(new AppError('Faculty assignment required', 403, 'FORBIDDEN'));
   }
 
-  req.user.facultyId = String(userResult.facultyId);
+  req.user.facultyId = userResult.facultyId;
   next();
 };
 

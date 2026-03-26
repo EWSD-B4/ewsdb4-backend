@@ -117,33 +117,54 @@ class ContributionService {
         throw new BadRequestError('Maximum 5 images allowed');
       }
 
-      // Create contribution with draft status
-      const contribution = await prisma.contribution.create({
-        data: {
-          userId,
-          facultyId,
-          academicYearId,
-          title,
-          status: 'draft',
-          submittedAt: new Date(),
-        },
+      // Create all database records in a single transaction
+      const { contribution, contributionFile, imageRecords } = await prisma.$transaction(async (tx) => {
+        // Create contribution with draft status
+        const contribution = await tx.contribution.create({
+          data: {
+            userId,
+            facultyId,
+            academicYearId,
+            title,
+            status: 'draft',
+            submittedAt: new Date(),
+          },
+        });
+
+        // Create DOCX file record
+        const contributionFile = await tx.contributionFile.create({
+          data: {
+            contributionId: contribution.id,
+            fileType: 'docx',
+            originalName: docxFile.originalname,
+            storedName: docxFile.originalname,
+            fileSize: BigInt(docxFile.size),
+            uploadedAt: new Date(),
+          },
+        });
+
+        // Create image file records
+        const imageRecords = [];
+        for (const imageFile of imageFiles) {
+          const imageRecord = await tx.contributionFile.create({
+            data: {
+              contributionId: contribution.id,
+              fileType: 'image',
+              originalName: imageFile.originalname,
+              storedName: imageFile.originalname,
+              fileSize: BigInt(imageFile.size),
+              uploadedAt: new Date(),
+            },
+          });
+          imageRecords.push(imageRecord);
+        }
+
+        return { contribution, contributionFile, imageRecords };
       });
 
       logger.info(`Contribution created: ${contribution.id} by user ${userId}`);
 
-      // Create DOCX file record
-      const contributionFile = await prisma.contributionFile.create({
-        data: {
-          contributionId: contribution.id,
-          fileType: 'docx',
-          originalName: docxFile.originalname,
-          storedName: docxFile.originalname,
-          fileSize: BigInt(docxFile.size),
-          uploadedAt: new Date(),
-        },
-      });
-
-      // Upload DOCX to S3
+      // Upload DOCX to S3 (outside transaction)
       const docxS3Key = `contributions/${contribution.id}/docx/${contributionFile.id}-${docxFile.originalname}`;
       await s3Service.uploadFile(docxS3Key, docxFile.buffer, docxFile.mimetype, {
         contributionId: contribution.id.toString(),
@@ -152,44 +173,23 @@ class ContributionService {
         fileType: 'docx',
       });
 
-      // Update DOCX file path
-      await prisma.contributionFile.update({
-        where: { id: contributionFile.id },
-        data: { filePath: docxS3Key },
-      });
-
       logger.info(`DOCX file uploaded to S3: ${docxS3Key}`);
 
-      // Process and upload images
+      // Process and upload images (outside transaction)
       const uploadedImages = [];
+      const filePathUpdates = [];
+      
+      // Upload all files to S3 first
       for (let i = 0; i < imageFiles.length; i++) {
         const imageFile = imageFiles[i];
-        
-        // Create image file record
-        const imageRecord = await prisma.contributionFile.create({
-          data: {
-            contributionId: contribution.id,
-            fileType: 'image',
-            originalName: imageFile.originalname,
-            storedName: imageFile.originalname,
-            fileSize: BigInt(imageFile.size),
-            uploadedAt: new Date(),
-          },
-        });
+        const imageRecord = imageRecords[i];
 
-        // Upload image to S3
         const imageS3Key = `contributions/${contribution.id}/images/${imageRecord.id}-${imageFile.originalname}`;
         await s3Service.uploadFile(imageS3Key, imageFile.buffer, imageFile.mimetype, {
           contributionId: contribution.id.toString(),
           contributionFileId: imageRecord.id.toString(),
           userId: userId.toString(),
           fileType: 'image',
-        });
-
-        // Update image file path
-        await prisma.contributionFile.update({
-          where: { id: imageRecord.id },
-          data: { filePath: imageS3Key },
         });
 
         uploadedImages.push({
@@ -199,8 +199,27 @@ class ContributionService {
           fileSize: imageFile.size,
         });
 
+        filePathUpdates.push({
+          id: imageRecord.id,
+          filePath: imageS3Key,
+        });
+
         logger.info(`Image ${i + 1}/${imageFiles.length} uploaded to S3: ${imageS3Key}`);
       }
+
+      // Batch update all file paths in a single transaction
+      await prisma.$transaction([
+        prisma.contributionFile.update({
+          where: { id: contributionFile.id },
+          data: { filePath: docxS3Key },
+        }),
+        ...filePathUpdates.map(update =>
+          prisma.contributionFile.update({
+            where: { id: update.id },
+            data: { filePath: update.filePath },
+          })
+        ),
+      ]);
 
       // Publish to RabbitMQ for DOCX processing
       await rabbitmqService.publishMessage({

@@ -42,6 +42,8 @@ services:
       - RABBITMQ_DLQ_ROUTING_KEY=document.failed
       - RABBITMQ_MAX_RETRIES=3
       - RABBITMQ_RETRY_DELAY_MS=60000
+      # MongoDB Configuration
+      - MONGODB_URI=mongodb://ewsdb4_user:ewsdb4_password@mongodb:27017/ewsdb4_documents?authSource=admin
     volumes:
       - ./src:/app/src
       - ./prisma:/app/prisma
@@ -54,6 +56,8 @@ services:
       rabbitmq:
         condition: service_healthy
       minio:
+        condition: service_healthy
+      mongodb:
         condition: service_healthy
     networks:
       - app-network
@@ -188,6 +192,8 @@ services:
       - RABBITMQ_DLQ_ROUTING_KEY=document.failed
       - RABBITMQ_MAX_RETRIES=3
       - RABBITMQ_RETRY_DELAY_MS=60000
+      # MongoDB Configuration
+      - MONGODB_URI=mongodb://ewsdb4_user:ewsdb4_password@mongodb:27017/ewsdb4_documents?authSource=admin
     volumes:
       - ./src:/app/src
       - /app/node_modules
@@ -200,15 +206,38 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      mongodb:
+        condition: service_healthy
     networks:
       - app-network
     command: npm run worker
+
+  mongodb:
+    image: mongo:7
+    container_name: ewsdb4-mongodb-local
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=ewsdb4_user
+      - MONGO_INITDB_ROOT_PASSWORD=ewsdb4_password
+      - MONGO_INITDB_DATABASE=ewsdb4_documents
+    ports:
+      - '27018:27017'
+    volumes:
+      - mongodb-data-local:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', 'db.adminCommand("ping")']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
 
 volumes:
   mysql-data-local:
   redis-data-local:
   rabbitmq-data-local:
   minio-data-local:
+  mongodb-data-local:
 
 networks:
   app-network:

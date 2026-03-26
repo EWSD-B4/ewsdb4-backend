@@ -52,8 +52,12 @@ class DocumentService {
         throw new BadRequestError('Contribution already has a DOCX file');
       }
 
-      if (fileType === 'image' && existingFiles.length >= 5) {
-        throw new BadRequestError('Contribution already has maximum 5 images');
+      // For images, only count manually uploaded images (not extracted from DOCX)
+      if (fileType === 'image') {
+        const manuallyUploadedImages = existingFiles.filter(f => !f.isExtracted);
+        if (manuallyUploadedImages.length >= 5) {
+          throw new BadRequestError('Contribution already has maximum 5 manually uploaded images');
+        }
       }
 
       // Create file record
@@ -64,6 +68,7 @@ class DocumentService {
           originalName: file.originalname,
           storedName: file.originalname,
           fileSize: BigInt(file.size),
+          isExtracted: false,
           uploadedAt: new Date(),
         },
       });

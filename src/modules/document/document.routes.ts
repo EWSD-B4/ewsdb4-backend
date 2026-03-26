@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { authenticate } from '@/middleware/auth';
 import documentController from './document.controller';
+import documentContentController from './document-content.controller';
 
 const router = Router();
 
@@ -61,5 +62,10 @@ router.get('/files/:fileId/markdown', authenticate, documentController.getConver
 
 // Delete file
 router.delete('/files/:fileId', authenticate, documentController.deleteContributionFile);
+
+// TipTap JSON Content Routes
+router.get('/content/:contributionFileId', authenticate, documentContentController.getByContributionFileId);
+router.get('/content/contribution/:contributionId', authenticate, documentContentController.getByContributionId);
+router.get('/content/:contributionFileId/stats', authenticate, documentContentController.getStatistics);
 
 export default router;
