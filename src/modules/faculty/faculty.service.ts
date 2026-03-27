@@ -12,7 +12,7 @@ class FacultyService {
     return idNum;
   }
 
-  async createFaculty(data: { code: string; name: string }) {
+  async createFaculty(data: { code: string; name: string; description: string }) {
     const existing = await prisma.faculty.findFirst({
       where: {
         OR: [{ facultyCode: data.code }, { facultyName: data.name }],
@@ -26,6 +26,7 @@ class FacultyService {
       data: {
         facultyCode: data.code,
         facultyName: data.name,
+        description: data.description,
       },
     });
   }
@@ -41,9 +42,9 @@ class FacultyService {
         { facultyName: { contains: query.search } },
       ];
     }
-    if (query.isActive !== undefined) {
-      where.isActive = query.isActive;
-    }
+    // if (query.isActive !== undefined) {
+    //   where.isActive = query.isActive;
+    // }
 
     const [items, total] = await Promise.all([
       prisma.faculty.findMany({
@@ -58,7 +59,7 @@ class FacultyService {
     return { items, total, limit, offset };
   }
 
-  async updateFaculty(id: string, data: { code?: string; name?: string; isActive?: boolean }) {
+  async updateFaculty(id: string, data: { code?: string; name?: string; isActive?: boolean; description?: string }) {
     const idNum = this.parseFacultyId(id);
     const faculty = await prisma.faculty.findUnique({ where: { id: idNum } });
     if (!faculty) {
@@ -86,6 +87,7 @@ class FacultyService {
         ...(data.code ? { facultyCode: data.code } : {}),
         ...(data.name ? { facultyName: data.name } : {}),
         ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+        ...(data.code? { description: data.description } : {}),
       },
     });
   }
