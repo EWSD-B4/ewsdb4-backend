@@ -3,12 +3,14 @@ import { z } from 'zod';
 export const facultyCreateSchema = z.object({
   code: z.string().min(2).max(50),
   name: z.string().min(2).max(200),
+  description: z.string().min(2).max(200),
 });
 
 export const facultyUpdateSchema = z.object({
   code: z.string().min(2).max(50).optional(),
   name: z.string().min(2).max(200).optional(),
   isActive: z.boolean().optional(),
+  description: z.string().min(2).max(200).optional(),
 });
 
 export const facultyListQuerySchema = z.object({
