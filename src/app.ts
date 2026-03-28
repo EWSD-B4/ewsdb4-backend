@@ -8,6 +8,7 @@ import routes from '@/routes';
 import { errorHandler, notFoundHandler } from '@/middleware/errorHandler';
 import logger from '@/shared/logger';
 import { requestId } from '@/middleware/requestId';
+import { activityLogger } from '@/middleware/activityLogger';
 
 const app: Application = express();
 
@@ -29,6 +30,9 @@ if (config.env === 'development') {
     })
   );
 }
+
+// Log user activity (page views)
+app.use(activityLogger);
 
 app.use(config.apiPrefix, routes);
 
