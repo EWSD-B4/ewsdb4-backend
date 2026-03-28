@@ -14,6 +14,7 @@ import commentRoutes from '@/modules/comment/comment.routes';
 import notificationRoutes from '@/modules/notification/notification.routes';
 import historyRoutes from '@/modules/history/history.routes';
 import facultyRoutes from "@/modules/faculty/faculty.routes";
+import analyticsRoutes from '@/modules/analytics/analytics.routes';
 const router = Router();
 
 router.use('/auth', authRoutes);
@@ -29,7 +30,8 @@ router.use('/terms', termsRoutes);
 router.use('/comments', commentRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/history', historyRoutes);
-router.use('/faculties', facultyRoutes)
+router.use('/faculties', facultyRoutes);
+router.use('/analytics', analyticsRoutes);
 
 router.get('/health', (_req, res) => {
   res
