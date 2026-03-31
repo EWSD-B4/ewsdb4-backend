@@ -139,6 +139,7 @@ class ContributionService {
             originalName: docxFile.originalname,
             storedName: docxFile.originalname,
             fileSize: BigInt(docxFile.size),
+            isExtracted: false,
             uploadedAt: new Date(),
           },
         });
@@ -153,6 +154,7 @@ class ContributionService {
               originalName: imageFile.originalname,
               storedName: imageFile.originalname,
               fileSize: BigInt(imageFile.size),
+              isExtracted: false,
               uploadedAt: new Date(),
             },
           });
