@@ -119,14 +119,14 @@ class ContributionService {
 
       // Create all database records in a single transaction
       const { contribution, contributionFile, imageRecords } = await prisma.$transaction(async (tx) => {
-        // Create contribution with draft status
+        // Create contribution with submitted status
         const contribution = await tx.contribution.create({
           data: {
             userId,
             facultyId,
             academicYearId,
             title,
-            status: 'draft',
+            status: 'submitted',
             submittedAt: new Date(),
           },
         });
