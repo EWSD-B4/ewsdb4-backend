@@ -86,7 +86,6 @@ model Contribution {
   academicYearId  Int                  @map("academic_year_id")
   facultyId       Int                  @map("faculty_id")
   title           String               @db.VarChar(255)
-  contentMd       String?              @map("content_md") @db.Text
   status          String               @default("draft") @db.VarChar(50)
   submittedAt     DateTime?            @map("submitted_at")
   publishedAt     DateTime?            @map("published_at")
