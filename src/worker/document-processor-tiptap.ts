@@ -7,6 +7,7 @@ import mammoth from 'mammoth';
 import { Try } from '@/shared/utils/Try';
 import { DocumentContentModel } from '@/models/document-content.model';
 import { db } from '@/shared/database';
+import plagiarismService from '../services/plagiarism.service';
 
 interface ExtractedImage {
   buffer: Buffer;
@@ -184,6 +185,7 @@ class DocumentProcessorTipTap {
           contributionFileId,
           contributionId,
           tiptapJson: tiptapJson,
+          plainText: plainText,
           uploadedImages: uploadedImageFiles.map((img) => ({
             s3Key: img.filePath || '',
             alt: img.originalName,
@@ -202,12 +204,45 @@ class DocumentProcessorTipTap {
         { upsert: true, returnDocument: 'after' }
       );
 
-      // Also store a simple markdown version in MySQL for backward compatibility
-      const simpleMarkdown = this.tiptapToMarkdown(tiptapJson);
-      await db.contributionFile.update({
-        where: { id: contributionFileId },
-        data: { contentMd: simpleMarkdown },
-      });
+      // Check for plagiarism
+      logger.info(`Checking plagiarism for contributionFileId=${contributionFileId}`);
+      const plagiarismMatches = await plagiarismService.checkPlagiarism(
+        plainText,
+        contributionFileId
+      );
+
+      // Store plagiarism check results
+      await DocumentContentModel.findOneAndUpdate(
+        { contributionFileId },
+        {
+          plagiarismCheck: {
+            checked: true,
+            checkedAt: new Date(),
+            matches: plagiarismMatches,
+          },
+        }
+      );
+
+      // If plagiarism detected, update contribution status to flagged
+      if (plagiarismMatches.length > 0) {
+        const riskLevel = plagiarismService.getRiskLevel(plagiarismMatches);
+        logger.warn(
+          `Plagiarism detected for contributionId=${contributionId}: ` +
+          `${plagiarismMatches.length} matches, risk level: ${riskLevel}, ` +
+          `highest similarity: ${(plagiarismMatches[0].similarityScore * 100).toFixed(1)}%`
+        );
+
+        // Update contribution status to flagged_plagiarism
+        await db.contribution.update({
+          where: { id: contributionId },
+          data: { status: 'flagged_plagiarism' },
+        });
+
+        logger.info(`Contribution ${contributionId} flagged for plagiarism review`);
+      } else {
+        logger.info(`No plagiarism detected for contributionId=${contributionId}`);
+      }
+
 
       logger.info(
         `Word document converted to TipTap JSON: contributionFileId=${contributionFileId}, ` +
@@ -309,24 +344,6 @@ class DocumentProcessorTipTap {
     return '';
   }
 
-  private tiptapToMarkdown(tiptapJson: any): string {
-    if (!tiptapJson || !tiptapJson.content) return '';
-
-    return tiptapJson.content
-      .map((node: any) => {
-        if (node.type === 'paragraph') {
-          const text = node.content?.map((c: any) => c.text || '').join('') || '';
-          return text + '\n\n';
-        }
-        if (node.type === 'heading') {
-          const level = node.attrs?.level || 1;
-          const text = node.content?.map((c: any) => c.text || '').join('') || '';
-          return '#'.repeat(level) + ' ' + text + '\n\n';
-        }
-        return '';
-      })
-      .join('');
-  }
 
   async stop(): Promise<void> {
     await rabbitmqService.close();

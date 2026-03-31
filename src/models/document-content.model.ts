@@ -15,6 +15,7 @@ export interface IDocumentContent extends Document {
   contributionFileId: number;
   contributionId: number;
   tiptapJson: ITipTapContent;
+  plainText?: string;
   uploadedImages: Array<{
     s3Key: string;
     alt?: string;
@@ -25,6 +26,16 @@ export interface IDocumentContent extends Document {
     alt?: string;
     title?: string;
   }>;
+  plagiarismCheck?: {
+    checked: boolean;
+    checkedAt: Date;
+    matches: Array<{
+      contributionFileId: number;
+      contributionId: number;
+      similarityScore: number;
+      matchedExcerpt?: string;
+    }>;
+  };
   metadata: {
     wordCount: number;
     characterCount: number;
@@ -66,6 +77,21 @@ const DocumentContentSchema = new Schema<IDocumentContent>(
         title: { type: String },
       },
     ],
+    plainText: {
+      type: String,
+    },
+    plagiarismCheck: {
+      checked: { type: Boolean, default: false },
+      checkedAt: { type: Date },
+      matches: [
+        {
+          contributionFileId: { type: Number, required: true },
+          contributionId: { type: Number, required: true },
+          similarityScore: { type: Number, required: true },
+          matchedExcerpt: { type: String },
+        },
+      ],
+    },
     metadata: {
       wordCount: { type: Number, default: 0 },
       characterCount: { type: Number, default: 0 },

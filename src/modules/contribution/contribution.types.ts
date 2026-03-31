@@ -13,7 +13,6 @@ export interface Contribution {
   academicYearId: number;
   facultyId: number;
   title: string;
-  contentMd: string | null;
   status: string;
   submittedAt: Date | null;
   publishedAt: Date | null;
@@ -28,7 +27,6 @@ export interface CreateContributionRequest {
 
 export interface UpdateContributionRequest {
   title?: string;
-  contentMd?: string;
 }
 
 export interface SubmitContributionRequest {
@@ -41,7 +39,6 @@ export interface ContributionResponse {
   academicYearId: number;
   facultyId: number;
   title: string;
-  contentMd: string | null;
   status: string;
   submittedAt: string | null;
   publishedAt: string | null;

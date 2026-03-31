@@ -235,46 +235,6 @@ class DocumentService {
     }).orElseThrow('Error updating file status');
   }
 
-  async updateConvertedMarkdown(
-    fileId: number,
-    markdown: string,
-    manifestS3Key: string
-  ): Promise<void> {
-    return Try.execute(async () => {
-      await db.contributionFile.update({
-        where: { id: fileId },
-        data: {
-          contentMd: markdown,
-          // Store manifest key in a comment or separate field if needed
-        },
-      });
-
-      logger.info(`Converted markdown updated for file: ${fileId}, manifest: ${manifestS3Key}`);
-    }).orElseThrow('Error updating converted markdown');
-  }
-
-  async getConvertedMarkdown(fileId: number): Promise<string> {
-    return Try.execute(async () => {
-      const file = await db.contributionFile.findUnique({
-        where: { id: fileId },
-        select: { contentMd: true, fileType: true },
-      });
-
-      if (!file) {
-        throw new NotFoundError('File not found');
-      }
-
-      if (file.fileType !== 'docx') {
-        throw new BadRequestError('Only DOCX files have converted markdown');
-      }
-
-      if (!file.contentMd) {
-        throw new NotFoundError('Markdown conversion not available yet');
-      }
-
-      return file.contentMd;
-    }).orElseThrow('Error fetching converted markdown');
-  }
 }
 
 export default new DocumentService();

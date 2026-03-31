@@ -57,8 +57,6 @@ router.get('/files/:fileId/download', authenticate, documentController.downloadC
 // Get signed download URL
 router.get('/files/:fileId/download-url', authenticate, documentController.getDownloadUrl);
 
-// Get converted markdown (for DOCX files)
-router.get('/files/:fileId/markdown', authenticate, documentController.getConvertedMarkdown);
 
 // Delete file
 router.delete('/files/:fileId', authenticate, documentController.deleteContributionFile);

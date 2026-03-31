@@ -5,7 +5,6 @@ export interface ContributionFileData {
   originalName: string | null;
   storedName: string | null;
   filePath: string | null;
-  contentMd: string | null;
   fileSize: bigint | null;
   status?: DocumentStatus;
   processingError?: string;
