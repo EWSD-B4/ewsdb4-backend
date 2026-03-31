@@ -13,12 +13,12 @@ export const createContributionSchema = Joi.object({
 });
 
 export const updateContributionSchema = Joi.object({
-  title: Joi.string().min(3).max(255).optional().messages({
+  title: Joi.string().min(3).max(255).required().messages({
+    'string.empty': 'Title is required',
     'string.min': 'Title must be at least 3 characters',
     'string.max': 'Title must not exceed 255 characters',
   }),
-  contentMd: Joi.string().optional().allow(null, ''),
-}).min(1);
+});
 
 export const submitContributionSchema = Joi.object({
   termsId: Joi.number().integer().positive().required().messages({

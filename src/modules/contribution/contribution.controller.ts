@@ -326,27 +326,12 @@ class ContributionController {
 
     const contributionId = parseInt(String(req.params.id), 10);
     const userId = parseInt(String(req.user.id), 10);
-    const { title, contentMd } = req.body;
-
-    if (!title && !contentMd) {
-      res.status(400).json({
-        success: false,
-        message: 'At least one field (title or contentMd) is required',
-        ...(process.env.NODE_ENV === 'development'
-          ? { stack: new Error('No fields to update').stack }
-          : {}),
-      });
-      return;
-    }
-
-    const updateData: { title?: string; contentMd?: string } = {};
-    if (title) updateData.title = title;
-    if (contentMd) updateData.contentMd = contentMd;
+    const { title } = req.body;
 
     const updated = await contributionService.updateContribution(
       contributionId,
       userId,
-      updateData
+      { title }
     );
 
     res.json(

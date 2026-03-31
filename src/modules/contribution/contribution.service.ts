@@ -465,7 +465,7 @@ class ContributionService {
   async updateContribution(
     contributionId: number,
     userId: number,
-    updateData: { title?: string; contentMd?: string }
+    updateData: { title?: string }
   ) {
     return Try.execute(async () => {
       // Check if contribution exists and belongs to the user

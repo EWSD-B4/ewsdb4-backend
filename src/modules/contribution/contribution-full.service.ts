@@ -170,7 +170,6 @@ class ContributionFullService {
 
       const updateData: any = {};
       if (data.title !== undefined) updateData.title = data.title;
-      if (data.contentMd !== undefined) updateData.contentMd = data.contentMd;
 
       const updated = await db.contribution.update({
         where: { id },
@@ -356,7 +355,6 @@ class ContributionFullService {
       academicYearId: contribution.academicYearId,
       facultyId: contribution.facultyId,
       title: contribution.title,
-      contentMd: contribution.contentMd,
       status: contribution.status,
       submittedAt: contribution.submittedAt ? contribution.submittedAt.toISOString() : null,
       publishedAt: contribution.publishedAt ? contribution.publishedAt.toISOString() : null,

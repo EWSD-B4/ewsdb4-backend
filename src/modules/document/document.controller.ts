@@ -107,19 +107,6 @@ class DocumentController {
     );
   });
 
-  getConvertedMarkdown = asyncHandler(async (req: Request, res: Response) => {
-    const fileId = parseInt(String(req.params.fileId), 10);
-
-    const markdown = await documentService.getConvertedMarkdown(fileId);
-
-    res.json(
-      successResponse(
-        { markdown },
-        req.requestId || 'unknown',
-        { message: 'Converted markdown retrieved successfully' }
-      )
-    );
-  });
 }
 
 export default new DocumentController();

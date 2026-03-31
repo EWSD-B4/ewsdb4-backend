@@ -15,6 +15,7 @@ import notificationRoutes from '@/modules/notification/notification.routes';
 import historyRoutes from '@/modules/history/history.routes';
 import facultyRoutes from "@/modules/faculty/faculty.routes";
 import analyticsRoutes from '@/modules/analytics/analytics.routes';
+import plagiarismRoutes from '@/modules/plagiarism/plagiarism.routes';
 const router = Router();
 
 router.use('/auth', authRoutes);
@@ -32,6 +33,7 @@ router.use('/notifications', notificationRoutes);
 router.use('/history', historyRoutes);
 router.use('/faculties', facultyRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/plagiarism', plagiarismRoutes);
 
 router.get('/health', (_req, res) => {
   res
