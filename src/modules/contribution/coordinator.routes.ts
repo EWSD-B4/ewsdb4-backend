@@ -2,8 +2,10 @@ import { Router } from 'express';
 import { authorize } from '@/middleware/authorize';
 import { authenticate } from '@/middleware/auth';
 import { requireFacultyIfRoleNeedsIt } from '@/middleware/facultyScope';
+import { validate } from '@/middleware/validation';
 import contributionController from './contribution.controller';
 import { ROLES } from '@/constants/roles';
+import { selectContributionSchema, rejectContributionSchema, updateStatusSchema } from './contribution.validation';
 
 const router = Router();
 
@@ -26,6 +28,7 @@ router.put(
   authenticate,
   authorize(ROLES.COORDINATOR),
   requireFacultyIfRoleNeedsIt,
+  validate(updateStatusSchema),
   contributionController.updateStatus
 );
 
@@ -34,6 +37,7 @@ router.post(
   authenticate,
   authorize(ROLES.COORDINATOR),
   requireFacultyIfRoleNeedsIt,
+  validate(selectContributionSchema),
   contributionController.selectContribution
 );
 
@@ -42,6 +46,7 @@ router.post(
   authenticate,
   authorize(ROLES.COORDINATOR),
   requireFacultyIfRoleNeedsIt,
+  validate(rejectContributionSchema),
   contributionController.rejectContribution
 );
 

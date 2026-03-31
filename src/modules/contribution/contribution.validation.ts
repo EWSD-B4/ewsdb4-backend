@@ -28,7 +28,26 @@ export const submitContributionSchema = Joi.object({
 });
 
 export const selectContributionSchema = Joi.object({
-  selected: Joi.boolean().required().messages({
-    'any.required': 'Selection status is required',
+  comment: Joi.string().min(10).max(1000).required().messages({
+    'string.empty': 'Comment is required when selecting a contribution',
+    'string.min': 'Comment must be at least 10 characters',
+    'string.max': 'Comment must not exceed 1000 characters',
+    'any.required': 'Comment is required when selecting a contribution',
+  }),
+});
+
+export const rejectContributionSchema = Joi.object({
+  comment: Joi.string().min(10).max(1000).required().messages({
+    'string.empty': 'Comment is required when rejecting a contribution',
+    'string.min': 'Comment must be at least 10 characters',
+    'string.max': 'Comment must not exceed 1000 characters',
+    'any.required': 'Comment is required when rejecting a contribution',
+  }),
+});
+
+export const updateStatusSchema = Joi.object({
+  status: Joi.string().valid('draft', 'submitted', 'under_review', 'selected', 'rejected', 'published', 'flagged_plagiarism').required().messages({
+    'any.required': 'Status is required',
+    'any.only': 'Invalid status value',
   }),
 });
