@@ -384,6 +384,7 @@ class ContributionService {
             contributionId,
             userId: coordinatorId,
             content: comment,
+            commentedAt: new Date(),
           },
         });
 
@@ -452,6 +453,7 @@ class ContributionService {
             contributionId,
             userId: coordinatorId,
             content: comment,
+            commentedAt: new Date(),
           },
         });
 
