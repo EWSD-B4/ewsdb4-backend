@@ -6,7 +6,7 @@ services:
     container_name: ewsdb4-api-local
     restart: unless-stopped
     ports:
-      - '3000:3000'
+      - "3000:3000"
     environment:
       - NODE_ENV=development
       - PORT=3000
@@ -21,8 +21,8 @@ services:
       - REDIS_PORT=6379
       - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - JWT_EXPIRES_IN=7d
-      - RESEND_API_KEY=re_CEa5X9C7_MsjAK5dBbHYGVeiD15bJhhpf
-      - EMAIL_FROM=hklynn1@kmd.edu.mm
+      - RESEND_API_KEY=re_Ee274hFU_DrG9wa7bDN88gn1bs2qyJidQ
+      - EMAIL_FROM=notification@librarease.org
       - APP_URL=http://localhost:3000
       # MinIO (Local S3) Configuration
       - AWS_REGION=us-east-1
@@ -73,11 +73,21 @@ services:
       - MYSQL_USER=ewsdb4_user
       - MYSQL_PASSWORD=ewsdb4_password
     ports:
-      - '3307:3306'
+      - "3307:3306"
     volumes:
       - mysql-data-local:/var/lib/mysql
     healthcheck:
-      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-prootpassword']
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-prootpassword",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -89,11 +99,11 @@ services:
     container_name: ewsdb4-redis-local
     restart: unless-stopped
     ports:
-      - '6380:6379'
+      - "6380:6379"
     volumes:
       - redis-data-local:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -105,15 +115,15 @@ services:
     container_name: ewsdb4-rabbitmq-local
     restart: unless-stopped
     ports:
-      - '5673:5672'
-      - '15673:15672'
+      - "5673:5672"
+      - "15673:15672"
     environment:
       - RABBITMQ_DEFAULT_USER=guest
       - RABBITMQ_DEFAULT_PASS=guest
     volumes:
       - rabbitmq-data-local:/var/lib/rabbitmq
     healthcheck:
-      test: ['CMD', 'rabbitmq-diagnostics', 'ping']
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
       timeout: 15s
       retries: 10
@@ -126,8 +136,8 @@ services:
     container_name: ewsdb4-minio-local
     restart: unless-stopped
     ports:
-      - '9000:9000'
-      - '9001:9001'
+      - "9000:9000"
+      - "9001:9001"
     environment:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
@@ -135,7 +145,7 @@ services:
       - minio-data-local:/data
     command: server /data --console-address ":9001"
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s
       timeout: 5s
       retries: 5
