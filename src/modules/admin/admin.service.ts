@@ -67,6 +67,36 @@ class AdminService {
     });
   }
 
+  async listGuests(facultyId?: number, limit: number = 20, offset: number = 0) {
+    const where: Prisma.UserWhereInput = { role: { roleCode: ROLES.GUEST } };
+    if (facultyId) {
+      where.facultyId = facultyId;
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        skip: offset,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          facultyId: true,
+          isActive: true,
+          createdAt: true,
+          lastLogin: true,
+          faculty: { select: { facultyName: true } },
+        },
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    return { items, total, limit, offset };
+  }
+
   async listUsersByFaculty(
     facultyId: string,
     roleCode?: string,

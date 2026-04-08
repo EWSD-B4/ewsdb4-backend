@@ -22,4 +22,46 @@ router.get(
   reportController.getFacultyExceptions
 );
 
+router.get(
+  '/contributions-by-faculty',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.MANAGER),
+  reportController.getContributionsByFaculty
+);
+
+router.get(
+  '/contributors-by-faculty',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.MANAGER),
+  reportController.getContributorsByFaculty
+);
+
+router.get(
+  '/contribution-percentages',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.MANAGER),
+  reportController.getContributionPercentages
+);
+
+router.get(
+  '/exceptions/no-comment',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.MANAGER, ROLES.COORDINATOR),
+  reportController.getContributionsWithoutComments
+);
+
+router.get(
+  '/exceptions/overdue',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.MANAGER, ROLES.COORDINATOR),
+  reportController.getOverdueContributions
+);
+
+router.get(
+  '/system-usage',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  reportController.getSystemUsage
+);
+
 export default router;

@@ -14,6 +14,8 @@ import { Try } from '@/shared/utils/Try';
 import cache from '@/shared/cache/redis';
 import crypto from 'crypto';
 import { emailService } from '@/shared/email';
+import notificationService from '@/modules/notification/notification.service';
+import { ROLES } from '@/constants/roles';
 
 type PasswordResetCacheEntry = {
   userId: string;
@@ -63,6 +65,12 @@ class AuthService {
       `Failed to send welcome email to ${user.email}`
     );
 
+    if (user.role === ROLES.GUEST && user.faculty_id) {
+      await Try.execute(() =>
+        notificationService.notifyGuestRegistered(parseInt(user.id, 10), user.faculty_id!)
+      ).orElseLogWarning('Failed to notify coordinator of guest registration');
+    }
+
     return {
       user: {
         id: user.id,
@@ -97,6 +105,8 @@ class AuthService {
       facultyId: user.faculty_id ?? 1,
     });
 
+    const previousLastLogin = user.lastLogin ?? null;
+
     await cache.set(`auth:state:user:${user.id}`, 'logged_in');
 
     await Try.execute(() => userRepository.update(user.id, { last_login: new Date() })).orElseLogWarning('Failed to update last login');
@@ -109,6 +119,7 @@ class AuthService {
         role: user.role,
         role_id: user.role_id,
         faculty: user.faculty,
+        lastLogin: previousLastLogin,
       },
       token,
     };

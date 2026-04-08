@@ -81,6 +81,17 @@ class AcademicYearService {
     }).orElseThrow('Error fetching current academic year');
   }
 
+  async getActiveAcademicYearId(): Promise<number> {
+    const year = await db.academicYear.findFirst({
+      where: { isCurrent: true, isActive: true },
+      select: { id: true },
+    });
+    if (!year) {
+      throw new NotFoundError('No active academic year found');
+    }
+    return year.id;
+  }
+
   async updateAcademicYear(
     id: number,
     data: UpdateAcademicYearRequest

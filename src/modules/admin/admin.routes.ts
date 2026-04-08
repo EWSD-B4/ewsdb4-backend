@@ -29,4 +29,10 @@ router.get(
     authorize(ROLES.ADMIN),
     adminController.getAllRoles
 );
+router.get(
+  '/guests',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.COORDINATOR),
+  adminController.listGuests
+);
 export default router;

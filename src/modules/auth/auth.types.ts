@@ -21,6 +21,7 @@ export interface AuthResponse {
     role: string;
     role_id: number;
     faculty: string;
+    lastLogin?: Date | null;
   };
   token: string;
 }

@@ -7,6 +7,13 @@ import { ROLES } from '@/constants/roles';
 const router = Router();
 
 router.get(
+  '/selected/download',
+  authenticate,
+  authorize(ROLES.MANAGER),
+  contributionController.downloadSelectedAsZip
+);
+
+router.get(
   '/selected',
   authenticate,
   authorize(ROLES.MANAGER),

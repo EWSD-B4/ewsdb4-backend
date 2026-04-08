@@ -26,24 +26,40 @@ class ReportService {
   async getFacultyExceptions(facultyId: number, academicYearId: number) {
     const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
 
-    const missingComment = await prisma.contribution.findMany({
-      where: {
-        facultyId,
-        academicYearId,
-      },
-      select: { id: true, submittedAt: true, status: true },
-    });
+    const [missingComment, overdue] = await Promise.all([
+      prisma.contribution.findMany({
+        where: {
+          facultyId,
+          academicYearId,
+          status: { in: ['submitted', 'under_review'] },
+          comments: { none: {} },
+        },
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        },
+        orderBy: { submittedAt: 'asc' },
+      }),
+      prisma.contribution.findMany({
+        where: {
+          facultyId,
+          academicYearId,
+          status: { in: ['submitted', 'under_review'] },
+          submittedAt: { lte: fourteenDaysAgo },
+          comments: { none: {} },
+        },
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        },
+        orderBy: { submittedAt: 'asc' },
+      }),
+    ]);
 
-    const overdue = await prisma.contribution.findMany({
-      where: {
-        facultyId,
-        academicYearId,
-        submittedAt: { lte: fourteenDaysAgo },
-      },
-      select: { id: true, submittedAt: true, status: true },
-    });
-
-    return { missingComment, overdue };
+    return {
+      missingComment,
+      overdue,
+      totalMissingComment: missingComment.length,
+      totalOverdue: overdue.length,
+    };
   }
 }
 

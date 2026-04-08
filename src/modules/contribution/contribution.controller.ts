@@ -3,7 +3,10 @@ import { asyncHandler } from '@/middleware/asyncHandler';
 import contributionService from './contribution.service';
 import { successResponse } from '@/utils/response';
 import { db as prisma } from '@/shared/database';
-import {AppError} from "@/middleware/errorHandler";
+import { AppError } from '@/middleware/errorHandler';
+import archiver from 'archiver';
+import s3Service from '@/shared/storage/s3.service';
+import academicYearService from '@/modules/academic-year/academic-year.service';
 
 class ContributionController {
   listCoordinator = asyncHandler(async (req: Request, res: Response) => {
@@ -100,14 +103,17 @@ class ContributionController {
 
     const userId = parseInt(String(req.user!.id), 10);
     const title = req.body.title as string | undefined;
-    const academicYearId = req.body.academicYearId as number | undefined;
+    const rawAcademicYearId = req.body.academicYearId
+      ? parseInt(String(req.body.academicYearId), 10)
+      : null;
+    const academicYearId: number = rawAcademicYearId ?? await academicYearService.getActiveAcademicYearId();
 
-    if (!title || !academicYearId) {
+    if (!title) {
       res.status(400).json({
         success: false,
-        message: 'Title and academicYearId are required',
+        message: 'Title is required',
         ...(process.env.NODE_ENV === 'development'
-          ? { stack: new Error('Title and academicYearId are required').stack }
+          ? { stack: new Error('Title is required').stack }
           : {}),
       });
       return;
@@ -458,9 +464,9 @@ class ContributionController {
   getStatistics = asyncHandler(async (req: Request, res: Response) => {
     const academicYearId = req.query.academicYearId
       ? parseInt(req.query.academicYearId as string, 10)
-      : undefined;
+      : await academicYearService.getActiveAcademicYearId();
 
-    const where = academicYearId ? { academicYearId } : {};
+    const where = { academicYearId };
 
     const [
       totalContributions,
@@ -503,16 +509,16 @@ class ContributionController {
   getFacultyYearReport = asyncHandler(async (req: Request, res: Response) => {
     const academicYearId = req.query.academicYearId
       ? parseInt(req.query.academicYearId as string, 10)
-      : undefined;
+      : await academicYearService.getActiveAcademicYearId();
 
     const contributions = await prisma.contribution.groupBy({
       by: ['facultyId', 'academicYearId'],
       _count: { id: true },
-      where: academicYearId ? { academicYearId } : {},
+      where: { academicYearId },
     });
 
     const total = await prisma.contribution.count({
-      where: academicYearId ? { academicYearId } : {},
+      where: { academicYearId },
     });
 
     const enrichedData = await Promise.all(
@@ -590,6 +596,49 @@ class ContributionController {
         { message: 'Exception report retrieved' }
       )
     );
+  });
+  downloadSelectedAsZip = asyncHandler(async (req: Request, res: Response) => {
+    const academicYearId = req.query.academicYearId
+      ? parseInt(req.query.academicYearId as string, 10)
+      : await academicYearService.getActiveAcademicYearId();
+
+    const where = { status: 'selected', academicYearId };
+
+    const contributions = await prisma.contribution.findMany({
+      where,
+      include: {
+        files: { where: { fileType: 'docx' }, orderBy: { createdAt: 'asc' }, take: 1 },
+        user: { select: { firstName: true, lastName: true } },
+        faculty: { select: { facultyCode: true } },
+      },
+    });
+
+    if (contributions.length === 0) {
+      throw new AppError('No selected contributions found', 404, 'NOT_FOUND');
+    }
+
+    const zipFilename = `selected-contributions${academicYearId ? `-ay${academicYearId}` : ''}.zip`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`);
+
+    const archive = archiver('zip', { zlib: { level: 6 } });
+    archive.pipe(res);
+
+    for (const contribution of contributions) {
+      const docxFile = contribution.files[0];
+      if (!docxFile?.filePath) continue;
+
+      try {
+        const buffer = await s3Service.downloadFile(docxFile.filePath);
+        const authorName = `${contribution.user.firstName || ''}_${contribution.user.lastName || ''}`.trim();
+        const filename = `${contribution.faculty.facultyCode}_${contribution.id}_${authorName}_${docxFile.originalName}`;
+        archive.append(buffer, { name: filename });
+      } catch {
+        // skip files that fail to download
+      }
+    }
+
+    await archive.finalize();
   });
 }
 

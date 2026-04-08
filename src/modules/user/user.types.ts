@@ -9,6 +9,7 @@ export interface User {
   role_id: number;
   faculty: string;
   faculty_id?: number;
+  lastLogin?: Date | null;
 }
 
 export interface CreateUserDTO {
