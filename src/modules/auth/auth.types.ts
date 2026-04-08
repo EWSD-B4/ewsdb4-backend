@@ -5,7 +5,9 @@ export interface LoginDTO {
 
 export interface RegisterDTO {
   email: string;
-  name: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
   password: string;
   roleId?: number;
   facultyId?: number;

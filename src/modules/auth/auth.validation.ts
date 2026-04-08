@@ -5,15 +5,26 @@ export const registerSchema = Joi.object({
     'string.email': 'Please provide a valid email address',
     'any.required': 'Email is required',
   }),
-  name: Joi.string().min(2).max(100).required().messages({
+  name: Joi.string().min(2).max(100).messages({
     'string.min': 'Name must be at least 2 characters long',
     'string.max': 'Name cannot exceed 100 characters',
-    'any.required': 'Name is required',
+  }),
+  firstName: Joi.string().min(1).max(100).messages({
+    'string.min': 'First name must be at least 1 character long',
+    'string.max': 'First name cannot exceed 100 characters',
+  }),
+  lastName: Joi.string().min(1).max(100).messages({
+    'string.min': 'Last name must be at least 1 character long',
+    'string.max': 'Last name cannot exceed 100 characters',
   }),
   password: Joi.string().min(8).required().messages({
     'string.min': 'Password must be at least 8 characters long',
     'any.required': 'Password is required',
   }),
+  roleId: Joi.number().integer().positive().optional(),
+  facultyId: Joi.number().integer().positive().optional(),
+}).or('name', 'firstName').messages({
+  'object.missing': 'Either name or firstName is required',
 });
 
 export const loginSchema = Joi.object({

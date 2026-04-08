@@ -35,10 +35,12 @@ class AuthService {
 
     const hashedPassword = await hashPassword(data.password);
 
+    const name = (data.name ?? [data.firstName, data.lastName].filter(Boolean).join(' ')) || '';
+
     const user = await Try.execute(() =>
       userRepository.create({
         email: data.email,
-        name: data.name,
+        name,
         password: hashedPassword,
         role_id: data.roleId ?? 1,
         faculty_id: data.facultyId ?? 1,
