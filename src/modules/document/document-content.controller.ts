@@ -78,6 +78,26 @@ class DocumentContentController {
   });
 
   /**
+   * Get aggregated statistics for all documents of a contribution
+   * GET /api/v1/documents/content/contribution/:contributionId/stats
+   */
+  getStatsByContributionId = asyncHandler(async (req: Request, res: Response) => {
+    const contributionId = parseInt(String(req.params.contributionId), 10);
+
+    if (!Number.isFinite(contributionId)) {
+      throw new AppError('Invalid contribution ID', 400, 'VALIDATION_ERROR');
+    }
+
+    const stats = await documentContentService.getStatisticsByContributionId(contributionId);
+
+    res.json(
+      successResponse(stats, req.requestId || 'unknown', {
+        message: 'Document statistics retrieved successfully',
+      })
+    );
+  });
+
+  /**
    * Get document statistics
    * GET /api/v1/documents/content/:contributionFileId/stats
    */

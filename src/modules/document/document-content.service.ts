@@ -45,6 +45,35 @@ class DocumentContentService {
   }
 
   /**
+   * Get aggregated statistics for all documents of a contribution
+   */
+  async getStatisticsByContributionId(contributionId: number) {
+    return Try.execute(async () => {
+      const contents = await DocumentContentModel.find({ contributionId });
+
+      if (contents.length === 0) {
+        throw new NotFoundError('No processed documents found for this contribution');
+      }
+
+      return {
+        contributionId,
+        documentCount: contents.length,
+        totalWordCount: contents.reduce((sum, c) => sum + (c.metadata.wordCount || 0), 0),
+        totalCharacterCount: contents.reduce((sum, c) => sum + (c.metadata.characterCount || 0), 0),
+        totalUploadedImages: contents.reduce((sum, c) => sum + (c.uploadedImages?.length || 0), 0),
+        totalExtractedImages: contents.reduce((sum, c) => sum + (c.extractedImages?.length || 0), 0),
+        documents: contents.map((c) => ({
+          contributionFileId: c.contributionFileId,
+          wordCount: c.metadata.wordCount,
+          characterCount: c.metadata.characterCount,
+          processedAt: c.metadata.processedAt,
+          processingDuration: c.metadata.processingDuration,
+        })),
+      };
+    }).orElseThrow('Error fetching document statistics by contribution ID');
+  }
+
+  /**
    * Get document statistics
    */
   async getStatistics(contributionFileId: number) {

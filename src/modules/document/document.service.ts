@@ -114,7 +114,7 @@ class DocumentService {
         originalName: file.originalname,
         storedName: file.originalname,
         filePath: s3Key,
-        fileSize: BigInt(file.size),
+        fileSize: file.size,
         status: fileType === 'docx' ? DocumentStatus.PENDING : DocumentStatus.COMPLETED,
         uploadedAt: new Date(),
         createdAt: contributionFile.createdAt,
@@ -139,7 +139,7 @@ class DocumentService {
         originalName: file.originalName,
         storedName: file.storedName,
         filePath: file.filePath,
-        fileSize: file.fileSize,
+        fileSize: file.fileSize !== null ? Number(file.fileSize) : null,
         status: DocumentStatus.COMPLETED,
         uploadedAt: file.uploadedAt,
         createdAt: file.createdAt,
@@ -161,7 +161,7 @@ class DocumentService {
         originalName: file.originalName,
         storedName: file.storedName,
         filePath: file.filePath,
-        fileSize: file.fileSize,
+        fileSize: file.fileSize !== null ? Number(file.fileSize) : null,
         status: DocumentStatus.COMPLETED,
         uploadedAt: file.uploadedAt,
         createdAt: file.createdAt,
@@ -195,6 +195,57 @@ class DocumentService {
 
       return await s3Service.getSignedDownloadUrl(file.filePath, expiresIn);
     }).orElseThrow('Error generating download URL');
+  }
+
+  async downloadByContributionId(
+    contributionId: number
+  ): Promise<{ buffer: Buffer; file: ContributionFileResponse }> {
+    return Try.execute(async () => {
+      const file = await db.contributionFile.findFirst({
+        where: { contributionId, fileType: 'docx' },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (!file || !file.filePath) {
+        throw new NotFoundError('No DOCX file found for this contribution');
+      }
+
+      const buffer = await s3Service.downloadFile(file.filePath);
+
+      return {
+        buffer,
+        file: {
+          id: file.id,
+          contributionId: file.contributionId,
+          fileType: file.fileType,
+          originalName: file.originalName,
+          storedName: file.storedName,
+          filePath: file.filePath,
+          fileSize: file.fileSize !== null ? Number(file.fileSize) : null,
+          status: DocumentStatus.COMPLETED,
+          uploadedAt: file.uploadedAt,
+          createdAt: file.createdAt,
+        },
+      };
+    }).orElseThrow('Error downloading contribution file by contribution ID');
+  }
+
+  async getDownloadUrlByContributionId(
+    contributionId: number,
+    expiresIn: number = 3600
+  ): Promise<string> {
+    return Try.execute(async () => {
+      const file = await db.contributionFile.findFirst({
+        where: { contributionId, fileType: 'docx' },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (!file || !file.filePath) {
+        throw new NotFoundError('No DOCX file found for this contribution');
+      }
+
+      return await s3Service.getSignedDownloadUrl(file.filePath, expiresIn);
+    }).orElseThrow('Error generating download URL by contribution ID');
   }
 
   async deleteContributionFile(fileId: number): Promise<void> {

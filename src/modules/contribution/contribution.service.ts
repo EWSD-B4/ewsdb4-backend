@@ -95,6 +95,10 @@ class ContributionService {
         );
       }
 
+      // Calculate comment due date (14 days from now)
+      const commentDueDate = new Date();
+      commentDueDate.setDate(commentDueDate.getDate() + 14);
+
       // Validate DOCX file
       const allowedDocxMimeTypes = [
         'application/msword',
@@ -129,6 +133,7 @@ class ContributionService {
             title,
             status: 'submitted',
             submittedAt: new Date(),
+            commentDueDate,
           },
         });
 
@@ -417,10 +422,22 @@ class ContributionService {
           id: contributionId,
           facultyId,
         },
+        include: {
+          academicYear: true,
+        },
       });
 
       if (!contribution) {
         throw new NotFoundError('Contribution not found or does not belong to your faculty');
+      }
+
+      // Check if selection is still allowed (before final closure date)
+      const now = new Date();
+      if (contribution.academicYear.closureFinalDate && now > contribution.academicYear.closureFinalDate) {
+        throw new BadRequestError(
+          `Selection is no longer allowed for ${contribution.academicYear.yearName}. ` +
+          `Final closure date was ${contribution.academicYear.closureFinalDate.toISOString().split('T')[0]}.`
+        );
       }
 
       // Update status to selected and create comment in a transaction
@@ -486,10 +503,22 @@ class ContributionService {
           id: contributionId,
           facultyId,
         },
+        include: {
+          academicYear: true,
+        },
       });
 
       if (!contribution) {
         throw new NotFoundError('Contribution not found or does not belong to your faculty');
+      }
+
+      // Check if rejection is still allowed (before final closure date)
+      const now = new Date();
+      if (contribution.academicYear.closureFinalDate && now > contribution.academicYear.closureFinalDate) {
+        throw new BadRequestError(
+          `Rejection is no longer allowed for ${contribution.academicYear.yearName}. ` +
+          `Final closure date was ${contribution.academicYear.closureFinalDate.toISOString().split('T')[0]}.`
+        );
       }
 
       // Update status to rejected and create comment in a transaction
@@ -540,6 +569,206 @@ class ContributionService {
 
       return result;
     }).orElseThrow('Error rejecting contribution');
+  }
+
+  async replaceContributionFiles(
+    contributionId: number,
+    userId: number,
+    docxFile: Express.Multer.File,
+    imageFiles: Express.Multer.File[] = []
+  ) {
+    return Try.execute(async () => {
+      // Ownership + existence check
+      const contribution = await prisma.contribution.findFirst({
+        where: { id: contributionId, userId },
+        include: { academicYear: true },
+      });
+
+      if (!contribution) {
+        throw new NotFoundError('Contribution not found or you do not have permission to update it');
+      }
+
+      // DOCX mime type check
+      const allowedDocxMimeTypes = [
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ];
+      if (!allowedDocxMimeTypes.includes(docxFile.mimetype)) {
+        throw new BadRequestError('Only DOCX files are allowed');
+      }
+
+      // Image mime type + count check
+      const allowedImageMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      for (const img of imageFiles) {
+        if (!allowedImageMimeTypes.includes(img.mimetype)) {
+          throw new BadRequestError(`Invalid image type: ${img.originalname}`);
+        }
+      }
+      if (imageFiles.length > 5) {
+        throw new BadRequestError('Maximum 5 images allowed');
+      }
+
+      // Load all existing files
+      const existingFiles = await prisma.contributionFile.findMany({
+        where: { contributionId },
+      });
+
+      const existingDocx = existingFiles.find(f => f.fileType === 'docx');
+      const existingImages = existingFiles.filter(f => f.fileType === 'image');
+
+      // Delete old DOCX from S3
+      if (existingDocx?.filePath) {
+        await s3Service.deleteFile(existingDocx.filePath);
+      }
+
+      // Delete old images from S3 (both uploaded and extracted)
+      if (imageFiles.length > 0) {
+        for (const img of existingImages) {
+          if (img.filePath) {
+            await s3Service.deleteFile(img.filePath);
+          }
+        }
+      }
+
+      // Replace DB records in a transaction
+      const { newDocxRecord, newImageRecords } = await prisma.$transaction(async (tx) => {
+        // Remove old DOCX record
+        if (existingDocx) {
+          await tx.contributionFile.delete({ where: { id: existingDocx.id } });
+        }
+
+        // Remove old image records only if new images are being provided
+        if (imageFiles.length > 0) {
+          await tx.contributionFile.deleteMany({
+            where: { contributionId, fileType: 'image' },
+          });
+        }
+
+        // Create new DOCX record
+        const newDocxRecord = await tx.contributionFile.create({
+          data: {
+            contributionId,
+            fileType: 'docx',
+            originalName: docxFile.originalname,
+            storedName: docxFile.originalname,
+            fileSize: BigInt(docxFile.size),
+            isExtracted: false,
+            uploadedAt: new Date(),
+          },
+        });
+
+        // Create new image records
+        const newImageRecords = [];
+        for (const img of imageFiles) {
+          const record = await tx.contributionFile.create({
+            data: {
+              contributionId,
+              fileType: 'image',
+              originalName: img.originalname,
+              storedName: img.originalname,
+              fileSize: BigInt(img.size),
+              isExtracted: false,
+              uploadedAt: new Date(),
+            },
+          });
+          newImageRecords.push({ record, file: img });
+        }
+
+        return { newDocxRecord, newImageRecords };
+      });
+
+      // Upload new DOCX to S3
+      const docxS3Key = `contributions/${contributionId}/docx/${newDocxRecord.id}-${docxFile.originalname}`;
+      await s3Service.uploadFile(docxS3Key, docxFile.buffer, docxFile.mimetype, {
+        contributionId: contributionId.toString(),
+        contributionFileId: newDocxRecord.id.toString(),
+        userId: userId.toString(),
+        fileType: 'docx',
+      });
+
+      // Upload new images to S3
+      const uploadedImages = [];
+      const imagePathUpdates: { id: number; filePath: string }[] = [];
+      for (const { record, file } of newImageRecords) {
+        const imageS3Key = `contributions/${contributionId}/images/${record.id}-${file.originalname}`;
+        await s3Service.uploadFile(imageS3Key, file.buffer, file.mimetype, {
+          contributionId: contributionId.toString(),
+          contributionFileId: record.id.toString(),
+          userId: userId.toString(),
+          fileType: 'image',
+        });
+        uploadedImages.push({ id: record.id, originalName: file.originalname, filePath: imageS3Key, fileSize: file.size });
+        imagePathUpdates.push({ id: record.id, filePath: imageS3Key });
+      }
+
+      // Persist S3 paths
+      await prisma.$transaction([
+        prisma.contributionFile.update({
+          where: { id: newDocxRecord.id },
+          data: { filePath: docxS3Key },
+        }),
+        ...imagePathUpdates.map(u =>
+          prisma.contributionFile.update({ where: { id: u.id }, data: { filePath: u.filePath } })
+        ),
+      ]);
+
+      // Reset contribution status to submitted so it re-enters the review pipeline
+      await prisma.contribution.update({
+        where: { id: contributionId },
+        data: { status: 'submitted', updatedAt: new Date() },
+      });
+
+      // Re-queue for processing
+      await rabbitmqService.publishMessage({
+        contributionFileId: newDocxRecord.id,
+        contributionId,
+        userId,
+        fileName: docxFile.originalname,
+        s3Key: docxS3Key,
+        contentType: docxFile.mimetype,
+        fileSize: docxFile.size,
+        uploadedAt: new Date().toISOString(),
+      });
+
+      logger.info(`Contribution ${contributionId} files replaced by user ${userId}, new DOCX queued for processing`);
+
+      return {
+        contributionId,
+        docxFile: {
+          id: newDocxRecord.id,
+          originalName: docxFile.originalname,
+          filePath: docxS3Key,
+          fileSize: docxFile.size,
+          status: 'pending',
+        },
+        images: uploadedImages,
+      };
+    }).orElseThrow('Error replacing contribution files');
+  }
+
+  async deleteStudentContribution(contributionId: number, userId: number) {
+    return Try.execute(async () => {
+      const contribution = await prisma.contribution.findFirst({
+        where: { id: contributionId, userId },
+        include: { files: true },
+      });
+
+      if (!contribution) {
+        throw new NotFoundError('Contribution not found or you do not have permission to delete it');
+      }
+
+      // Delete all files from S3
+      for (const file of contribution.files) {
+        if (file.filePath) {
+          await s3Service.deleteFile(file.filePath);
+        }
+      }
+
+      // Delete contribution (cascades to files, comments, etc. via DB constraints)
+      await prisma.contribution.delete({ where: { id: contributionId } });
+
+      logger.info(`Contribution ${contributionId} deleted by student ${userId}`);
+    }).orElseThrow('Error deleting contribution');
   }
 
   async updateContribution(

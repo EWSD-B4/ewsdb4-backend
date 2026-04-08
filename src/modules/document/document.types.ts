@@ -32,7 +32,7 @@ export interface ContributionFileResponse {
   originalName: string | null;
   storedName: string | null;
   filePath: string | null;
-  fileSize: bigint | null;
+  fileSize: number | null;
   status: DocumentStatus;
   uploadedAt: Date | null;
   createdAt: Date;

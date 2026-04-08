@@ -48,6 +48,20 @@ router.get(
   documentController.getContributionFiles
 );
 
+// Download primary DOCX by contribution ID
+router.get(
+  '/contributions/:contributionId/files/download',
+  authenticate,
+  documentController.downloadByContributionId
+);
+
+// Get signed download URL for primary DOCX by contribution ID
+router.get(
+  '/contributions/:contributionId/files/download-url',
+  authenticate,
+  documentController.getDownloadUrlByContributionId
+);
+
 // Get specific file by ID
 router.get('/files/:fileId', authenticate, documentController.getContributionFileById);
 
@@ -62,8 +76,9 @@ router.get('/files/:fileId/download-url', authenticate, documentController.getDo
 router.delete('/files/:fileId', authenticate, documentController.deleteContributionFile);
 
 // TipTap JSON Content Routes
-router.get('/content/:contributionFileId', authenticate, documentContentController.getByContributionFileId);
+router.get('/content/contribution/:contributionId/stats', authenticate, documentContentController.getStatsByContributionId);
 router.get('/content/contribution/:contributionId', authenticate, documentContentController.getByContributionId);
 router.get('/content/:contributionFileId/stats', authenticate, documentContentController.getStatistics);
+router.get('/content/:contributionFileId', authenticate, documentContentController.getByContributionFileId);
 
 export default router;

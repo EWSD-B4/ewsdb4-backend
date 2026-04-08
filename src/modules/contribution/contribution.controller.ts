@@ -99,7 +99,8 @@ class ContributionController {
     }
 
     const userId = parseInt(String(req.user!.id), 10);
-    const { title, academicYearId } = req.body;
+    const title = req.body.title as string | undefined;
+    const academicYearId = req.body.academicYearId as number | undefined;
 
     if (!title || !academicYearId) {
       res.status(400).json({
@@ -116,7 +117,7 @@ class ContributionController {
       userId,
       facultyId,
       parseInt(String(academicYearId), 10),
-      title,
+      String(title),
       docxFile,
       imageFiles
     );
@@ -209,7 +210,7 @@ class ContributionController {
     }
 
     const contributionId = parseInt(String(req.params.id), 10);
-    const { status } = req.body;
+    const status = req.body.status as string | undefined;
 
     if (!status) {
       res.status(400).json({
@@ -225,7 +226,7 @@ class ContributionController {
     const updated = await contributionService.updateContributionStatus(
       contributionId,
       facultyId,
-      status
+      String(status)
     );
 
     res.json(
@@ -250,7 +251,7 @@ class ContributionController {
 
     const contributionId = parseInt(String(req.params.id), 10);
     const coordinatorId = parseInt(String(req.user!.id), 10);
-    const { comment } = req.body;
+    const comment = req.body.comment as string | undefined;
 
     if (!comment) {
       res.status(400).json({
@@ -267,7 +268,7 @@ class ContributionController {
       contributionId,
       coordinatorId,
       facultyId,
-      comment
+      String(comment)
     );
 
     res.json(
@@ -292,7 +293,7 @@ class ContributionController {
 
     const contributionId = parseInt(String(req.params.id), 10);
     const coordinatorId = parseInt(String(req.user!.id), 10);
-    const { comment } = req.body;
+    const comment = req.body.comment as string | undefined;
 
     if (!comment) {
       res.status(400).json({
@@ -309,12 +310,60 @@ class ContributionController {
       contributionId,
       coordinatorId,
       facultyId,
-      comment
+      String(comment)
     );
 
     res.json(
       successResponse(result, req.requestId || 'unknown', {
         message: 'Contribution rejected successfully',
+      })
+    );
+  });
+
+  replaceContributionFiles = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) {
+      throw new AppError('Authentication required', 401, 'UNAUTHORIZED');
+    }
+
+    const files = req.files as { docx?: Express.Multer.File[]; images?: Express.Multer.File[] };
+    const docxFile = files?.docx?.[0];
+
+    if (!docxFile) {
+      res.status(400).json({ success: false, message: 'DOCX file is required' });
+      return;
+    }
+
+    const contributionId = parseInt(String(req.params.id), 10);
+    const userId = parseInt(String(req.user.id), 10);
+    const imageFiles = files?.images ?? [];
+
+    const result = await contributionService.replaceContributionFiles(
+      contributionId,
+      userId,
+      docxFile,
+      imageFiles
+    );
+
+    res.json(
+      successResponse(result, req.requestId || 'unknown', {
+        message: 'Contribution files replaced and queued for processing',
+      })
+    );
+  });
+
+  deleteStudentContribution = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) {
+      throw new AppError('Authentication required', 401, 'UNAUTHORIZED');
+    }
+
+    const contributionId = parseInt(String(req.params.id), 10);
+    const userId = parseInt(String(req.user.id), 10);
+
+    await contributionService.deleteStudentContribution(contributionId, userId);
+
+    res.json(
+      successResponse(null, req.requestId || 'unknown', {
+        message: 'Contribution deleted successfully',
       })
     );
   });
@@ -326,7 +375,7 @@ class ContributionController {
 
     const contributionId = parseInt(String(req.params.id), 10);
     const userId = parseInt(String(req.user.id), 10);
-    const { title } = req.body;
+    const title = req.body.title as string | undefined;
 
     const updated = await contributionService.updateContribution(
       contributionId,
@@ -338,6 +387,208 @@ class ContributionController {
       successResponse(updated, req.requestId || 'unknown', {
         message: 'Contribution updated successfully',
       })
+    );
+  });
+
+  listAllSelected = asyncHandler(async (req: Request, res: Response) => {
+    const limitRaw = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+    const offsetRaw = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 100 ? limitRaw : 20;
+    const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
+
+    const where = { status: 'selected' };
+    const [items, total] = await Promise.all([
+      prisma.contribution.findMany({
+        where,
+        skip: offset,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true, email: true } },
+          faculty: { select: { id: true, facultyName: true, facultyCode: true } },
+          academicYear: { select: { id: true, yearName: true } },
+        },
+      }),
+      prisma.contribution.count({ where }),
+    ]);
+
+    res.json(
+      successResponse({ items, total }, req.requestId || 'unknown', {
+        message: 'Selected contributions retrieved',
+        pagination: { limit, offset, total },
+      })
+    );
+  });
+
+  getSelectedContribution = asyncHandler(async (req: Request, res: Response) => {
+    const contributionId = parseInt(String(req.params.id), 10);
+    const contribution = await prisma.contribution.findFirst({
+      where: { id: contributionId, status: 'selected' },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        faculty: { select: { id: true, facultyName: true, facultyCode: true } },
+        academicYear: { select: { id: true, yearName: true } },
+        files: true,
+        comments: {
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true } },
+          },
+        },
+      },
+    });
+
+    if (!contribution) {
+      res.status(404).json({
+        success: false,
+        message: 'Selected contribution not found',
+        ...(process.env.NODE_ENV === 'development'
+          ? { stack: new Error('Selected contribution not found').stack }
+          : {}),
+      });
+      return;
+    }
+
+    res.json(
+      successResponse(contribution, req.requestId || 'unknown', {
+        message: 'Contribution retrieved',
+      })
+    );
+  });
+
+  getStatistics = asyncHandler(async (req: Request, res: Response) => {
+    const academicYearId = req.query.academicYearId
+      ? parseInt(req.query.academicYearId as string, 10)
+      : undefined;
+
+    const where = academicYearId ? { academicYearId } : {};
+
+    const [
+      totalContributions,
+      submittedContributions,
+      selectedContributions,
+      publishedContributions,
+      rejectedContributions,
+      contributionsWithoutComments,
+    ] = await Promise.all([
+      prisma.contribution.count({ where }),
+      prisma.contribution.count({ where: { ...where, status: 'submitted' } }),
+      prisma.contribution.count({ where: { ...where, status: 'selected' } }),
+      prisma.contribution.count({ where: { ...where, status: 'published' } }),
+      prisma.contribution.count({ where: { ...where, status: 'rejected' } }),
+      prisma.contribution.count({
+        where: {
+          ...where,
+          status: { in: ['submitted', 'under_review'] },
+          comments: { none: {} },
+        },
+      }),
+    ]);
+
+    res.json(
+      successResponse(
+        {
+          totalContributions,
+          submittedContributions,
+          selectedContributions,
+          publishedContributions,
+          rejectedContributions,
+          contributionsWithoutComments,
+        },
+        req.requestId || 'unknown',
+        { message: 'Statistics retrieved' }
+      )
+    );
+  });
+
+  getFacultyYearReport = asyncHandler(async (req: Request, res: Response) => {
+    const academicYearId = req.query.academicYearId
+      ? parseInt(req.query.academicYearId as string, 10)
+      : undefined;
+
+    const contributions = await prisma.contribution.groupBy({
+      by: ['facultyId', 'academicYearId'],
+      _count: { id: true },
+      where: academicYearId ? { academicYearId } : {},
+    });
+
+    const total = await prisma.contribution.count({
+      where: academicYearId ? { academicYearId } : {},
+    });
+
+    const enrichedData = await Promise.all(
+      contributions.map(async (item) => {
+        const faculty = await prisma.faculty.findUnique({
+          where: { id: item.facultyId },
+          select: { facultyName: true, facultyCode: true },
+        });
+        const academicYear = await prisma.academicYear.findUnique({
+          where: { id: item.academicYearId },
+          select: { yearName: true },
+        });
+
+        return {
+          facultyId: item.facultyId,
+          facultyName: faculty?.facultyName,
+          facultyCode: faculty?.facultyCode,
+          academicYearId: item.academicYearId,
+          yearName: academicYear?.yearName,
+          count: item._count.id,
+          percentage: total > 0 ? ((item._count.id / total) * 100).toFixed(2) : '0.00',
+        };
+      })
+    );
+
+    res.json(
+      successResponse(
+        { items: enrichedData, total },
+        req.requestId || 'unknown',
+        { message: 'Faculty year report retrieved' }
+      )
+    );
+  });
+
+  getExceptionReport = asyncHandler(async (req: Request, res: Response) => {
+    const now = new Date();
+
+    const [contributionsWithoutComments, contributionsOverdue] = await Promise.all([
+      prisma.contribution.findMany({
+        where: {
+          status: { in: ['submitted', 'under_review'] },
+          comments: { none: {} },
+        },
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true, email: true } },
+          faculty: { select: { id: true, facultyName: true, facultyCode: true } },
+          academicYear: { select: { id: true, yearName: true } },
+        },
+        orderBy: { submittedAt: 'asc' },
+      }),
+      prisma.contribution.findMany({
+        where: {
+          status: { in: ['submitted', 'under_review'] },
+          commentDueDate: { lt: now },
+          comments: { none: {} },
+        },
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true, email: true } },
+          faculty: { select: { id: true, facultyName: true, facultyCode: true } },
+          academicYear: { select: { id: true, yearName: true } },
+        },
+        orderBy: { commentDueDate: 'asc' },
+      }),
+    ]);
+
+    res.json(
+      successResponse(
+        {
+          contributionsWithoutComments,
+          contributionsOverdue,
+          totalWithoutComments: contributionsWithoutComments.length,
+          totalOverdue: contributionsOverdue.length,
+        },
+        req.requestId || 'unknown',
+        { message: 'Exception report retrieved' }
+      )
     );
   });
 }

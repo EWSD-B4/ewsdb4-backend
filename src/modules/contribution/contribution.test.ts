@@ -78,21 +78,21 @@ describe('Contribution API', () => {
     await db.termsCondition.deleteMany({ where: { id: termsId } });
   });
 
-  describe('POST /api/v1/contributions', () => {
-    it('should create contribution as student', async () => {
+  describe('POST /api/v1/student/contributions/submit', () => {
+    it('should create and submit contribution as student with files', async () => {
       const response = await request(app)
-        .post('/api/v1/contributions')
+        .post('/api/v1/student/contributions/submit')
         .set('Authorization', `Bearer ${studentToken}`)
-        .send({
-          title: 'My First Contribution',
-          academicYearId,
-        });
+        .field('title', 'My First Contribution')
+        .field('academicYearId', academicYearId)
+        .attach('docx', Buffer.from('fake docx content'), 'test.docx')
+        .attach('images', Buffer.from('fake image'), 'test.jpg');
 
       expect(response.status).toBe(201);
-      expect(response.body.data.title).toBe('My First Contribution');
-      expect(response.body.data.status).toBe('draft');
-      expect(response.body.data.userId).toBe(studentId);
-      contributionId = response.body.data.id;
+      expect(response.body.data.contribution.title).toBe('My First Contribution');
+      expect(response.body.data.contribution.status).toBe('submitted');
+      expect(response.body.data.contribution.userId).toBe(studentId);
+      contributionId = response.body.data.contribution.id;
     });
 
     it('should reject contribution without faculty', async () => {
@@ -112,14 +112,13 @@ describe('Contribution API', () => {
       });
 
       const response = await request(app)
-        .post('/api/v1/contributions')
+        .post('/api/v1/student/contributions/submit')
         .set('Authorization', `Bearer ${login.body.data.token}`)
-        .send({
-          title: 'Invalid Contribution',
-          academicYearId,
-        });
+        .field('title', 'Invalid Contribution')
+        .field('academicYearId', academicYearId)
+        .attach('docx', Buffer.from('fake docx'), 'test.docx');
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(403);
       expect(response.body.message).toContain('faculty');
 
       await db.user.delete({ where: { id: noFacultyUser.id } });
@@ -127,54 +126,53 @@ describe('Contribution API', () => {
 
     it('should validate title length', async () => {
       const response = await request(app)
-        .post('/api/v1/contributions')
+        .post('/api/v1/student/contributions/submit')
         .set('Authorization', `Bearer ${studentToken}`)
-        .send({
-          title: 'AB',
-          academicYearId,
-        });
+        .field('title', 'AB')
+        .field('academicYearId', academicYearId)
+        .attach('docx', Buffer.from('fake docx'), 'test.docx');
 
       expect(response.status).toBe(400);
     });
   });
 
-  describe('GET /api/v1/contributions', () => {
+  describe('GET /api/v1/student/contributions', () => {
     it('should list student own contributions', async () => {
       const response = await request(app)
-        .get('/api/v1/contributions')
+        .get('/api/v1/student/contributions')
         .set('Authorization', `Bearer ${studentToken}`);
 
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body.data.contributions)).toBe(true);
-      expect(response.body.data.contributions.length).toBeGreaterThan(0);
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+      expect(response.body.data.items.length).toBeGreaterThan(0);
     });
 
     it('should filter by status', async () => {
       const response = await request(app)
-        .get('/api/v1/contributions?status=draft')
+        .get('/api/v1/student/contributions?status=submitted')
         .set('Authorization', `Bearer ${studentToken}`);
 
       expect(response.status).toBe(200);
-      const allDraft = response.body.data.contributions.every((c: any) => c.status === 'draft');
-      expect(allDraft).toBe(true);
+      const allSubmitted = response.body.data.items.every((c: any) => c.status === 'submitted');
+      expect(allSubmitted).toBe(true);
     });
 
     it('should support pagination', async () => {
       const response = await request(app)
-        .get('/api/v1/contributions?limit=5&offset=0')
+        .get('/api/v1/student/contributions?limit=5&offset=0')
         .set('Authorization', `Bearer ${studentToken}`);
 
       expect(response.status).toBe(200);
-      expect(response.body.data.limit).toBe(5);
-      expect(response.body.data.offset).toBe(0);
+      expect(response.body.meta.pagination.limit).toBe(5);
+      expect(response.body.meta.pagination.offset).toBe(0);
     });
   });
 
-  describe('GET /api/v1/contributions/:id', () => {
-    it('should get contribution by id', async () => {
+  describe('GET /api/v1/coordinator/contributions/:id', () => {
+    it('should get contribution by id as coordinator', async () => {
       const response = await request(app)
-        .get(`/api/v1/contributions/${contributionId}`)
-        .set('Authorization', `Bearer ${studentToken}`);
+        .get(`/api/v1/coordinator/contributions/${contributionId}`)
+        .set('Authorization', `Bearer ${coordinatorToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body.data.id).toBe(contributionId);
@@ -183,140 +181,109 @@ describe('Contribution API', () => {
 
     it('should return 404 for non-existent contribution', async () => {
       const response = await request(app)
-        .get('/api/v1/contributions/99999')
-        .set('Authorization', `Bearer ${studentToken}`);
+        .get('/api/v1/coordinator/contributions/99999')
+        .set('Authorization', `Bearer ${coordinatorToken}`);
 
       expect(response.status).toBe(404);
     });
   });
 
-  describe('PUT /api/v1/contributions/:id', () => {
-    it('should update own contribution', async () => {
+  describe('PUT /api/v1/student/contributions/:id', () => {
+    it('should not allow update of submitted contribution', async () => {
       const response = await request(app)
-        .put(`/api/v1/contributions/${contributionId}`)
+        .put(`/api/v1/student/contributions/${contributionId}`)
         .set('Authorization', `Bearer ${studentToken}`)
         .send({
           title: 'Updated Contribution Title',
         });
 
-      expect(response.status).toBe(200);
-      expect(response.body.data.title).toBe('Updated Contribution Title');
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain('draft or rejected');
     });
 
     it('should reject updating others contribution', async () => {
-      const response = await request(app)
-        .put(`/api/v1/contributions/${contributionId}`)
-        .set('Authorization', `Bearer ${coordinatorToken}`)
-        .send({
-          title: 'Unauthorized Update',
-        });
-
-      expect(response.status).toBe(403);
-    });
-  });
-
-  describe('POST /api/v1/contributions/:id/submit', () => {
-    beforeAll(async () => {
-      await db.contributionFile.create({
+      const otherContribution = await db.contribution.create({
         data: {
-          contributionId,
-          fileType: 'docx',
-          originalName: 'test.docx',
-          storedName: 'test-stored.docx',
-          filePath: '/test/path.docx',
-          fileSize: BigInt(1024),
-        },
-      });
-    });
-
-    it('should submit contribution with terms agreement', async () => {
-      const response = await request(app)
-        .post(`/api/v1/contributions/${contributionId}/submit`)
-        .set('Authorization', `Bearer ${studentToken}`)
-        .send({
-          termsId,
-        });
-
-      expect(response.status).toBe(200);
-      expect(response.body.data.status).toBe('submitted');
-      expect(response.body.data.submittedAt).toBeTruthy();
-
-      const agreement = await db.agreement.findFirst({
-        where: { contributionId, userId: studentId },
-      });
-      expect(agreement).toBeTruthy();
-    });
-
-    it('should reject resubmission', async () => {
-      const response = await request(app)
-        .post(`/api/v1/contributions/${contributionId}/submit`)
-        .set('Authorization', `Bearer ${studentToken}`)
-        .send({
-          termsId,
-        });
-
-      expect(response.status).toBe(400);
-      expect(response.body.message).toContain('already been submitted');
-    });
-  });
-
-  describe('POST /api/v1/contributions/:id/select', () => {
-    it('should select contribution as coordinator', async () => {
-      const response = await request(app)
-        .post(`/api/v1/contributions/${contributionId}/select`)
-        .set('Authorization', `Bearer ${coordinatorToken}`)
-        .send({
-          selected: true,
-        });
-
-      expect(response.status).toBe(200);
-      expect(response.body.data.status).toBe('selected');
-      expect(response.body.data.publishedAt).toBeTruthy();
-    });
-
-    it('should reject selection by student', async () => {
-      const response = await request(app)
-        .post(`/api/v1/contributions/${contributionId}/select`)
-        .set('Authorization', `Bearer ${studentToken}`)
-        .send({
-          selected: false,
-        });
-
-      expect(response.status).toBe(403);
-    });
-  });
-
-  describe('DELETE /api/v1/contributions/:id', () => {
-    it('should reject deleting submitted contribution', async () => {
-      const response = await request(app)
-        .delete(`/api/v1/contributions/${contributionId}`)
-        .set('Authorization', `Bearer ${studentToken}`);
-
-      expect(response.status).toBe(400);
-      expect(response.body.message).toContain('draft');
-    });
-
-    it('should delete draft contribution', async () => {
-      const draftContribution = await db.contribution.create({
-        data: {
-          userId: studentId,
+          userId: (await db.user.findFirst({ where: { email: 'contrib-coordinator@test.edu' } }))!.id,
           academicYearId,
           facultyId,
-          title: 'Draft to Delete',
+          title: 'Other User Contribution',
           status: 'draft',
         },
       });
 
       const response = await request(app)
-        .delete(`/api/v1/contributions/${draftContribution.id}`)
-        .set('Authorization', `Bearer ${studentToken}`);
+        .put(`/api/v1/student/contributions/${otherContribution.id}`)
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({
+          title: 'Unauthorized Update',
+        });
+
+      expect(response.status).toBe(404);
+      await db.contribution.delete({ where: { id: otherContribution.id } });
+    });
+  });
+
+  describe('Contribution submission flow', () => {
+    it('should have contribution already submitted from creation', async () => {
+      const contribution = await db.contribution.findUnique({
+        where: { id: contributionId },
+      });
+
+      expect(contribution).toBeTruthy();
+      expect(contribution!.status).toBe('submitted');
+      expect(contribution!.submittedAt).toBeTruthy();
+      expect(contribution!.commentDueDate).toBeTruthy();
+    });
+  });
+
+  describe('POST /api/v1/coordinator/contributions/:id/select', () => {
+    it('should select contribution as coordinator with comment', async () => {
+      const response = await request(app)
+        .post(`/api/v1/coordinator/contributions/${contributionId}/select`)
+        .set('Authorization', `Bearer ${coordinatorToken}`)
+        .send({
+          comment: 'This is an excellent contribution that meets all our quality standards.',
+        });
 
       expect(response.status).toBe(200);
+      expect(response.body.data.contribution.status).toBe('selected');
+      expect(response.body.data.comment).toBeTruthy();
+    });
 
-      const deleted = await db.contribution.findUnique({
-        where: { id: draftContribution.id },
-      });
-      expect(deleted).toBeNull();
+    it('should reject selection by student', async () => {
+      const response = await request(app)
+        .post(`/api/v1/coordinator/contributions/${contributionId}/select`)
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({
+          comment: 'Student trying to select',
+        });
+
+      expect(response.status).toBe(403);
+    });
+  });
+
+  describe('Coordinator actions', () => {
+    it('should list contributions for coordinator', async () => {
+      const response = await request(app)
+        .get('/api/v1/coordinator/contributions')
+        .set('Authorization', `Bearer ${coordinatorToken}`);
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+    });
+
+    it('should update contribution status as coordinator', async () => {
+      const response = await request(app)
+        .put(`/api/v1/coordinator/contributions/${contributionId}/status`)
+        .set('Authorization', `Bearer ${coordinatorToken}`)
+        .send({
+          status: 'published',
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.status).toBe('published');
+      expect(response.body.data.publishedAt).toBeTruthy();
     });
   });
 });

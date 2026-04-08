@@ -61,7 +61,20 @@ router.put(
   authenticate,
   authorize(ROLES.STUDENT),
   requireFacultyIfRoleNeedsIt,
-  contributionController.updateContribution
+  upload.fields([
+    { name: 'docx', maxCount: 1 },
+    { name: 'images', maxCount: 5 },
+  ]),
+  contributionController.replaceContributionFiles
 );
+
+router.delete(
+  '/contributions/:id',
+  authenticate,
+  authorize(ROLES.STUDENT),
+  requireFacultyIfRoleNeedsIt,
+  contributionController.deleteStudentContribution
+);
+
 
 export default router;

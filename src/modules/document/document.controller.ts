@@ -95,6 +95,33 @@ class DocumentController {
     );
   });
 
+  downloadByContributionId = asyncHandler(async (req: Request, res: Response) => {
+    const contributionId = parseInt(String(req.params.contributionId), 10);
+
+    const { buffer, file } = await documentService.downloadByContributionId(contributionId);
+
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
+    res.setHeader('Content-Length', buffer.length);
+
+    res.send(buffer);
+  });
+
+  getDownloadUrlByContributionId = asyncHandler(async (req: Request, res: Response) => {
+    const contributionId = parseInt(String(req.params.contributionId), 10);
+    const expiresIn = parseInt((req.query.expiresIn as string) || '3600', 10);
+
+    const downloadUrl = await documentService.getDownloadUrlByContributionId(contributionId, expiresIn);
+
+    res.json(
+      successResponse(
+        { downloadUrl, expiresIn },
+        req.requestId || 'unknown',
+        { message: 'Download URL generated successfully' }
+      )
+    );
+  });
+
   deleteContributionFile = asyncHandler(async (req: Request, res: Response) => {
     const fileId = parseInt(String(req.params.fileId), 10);
 
