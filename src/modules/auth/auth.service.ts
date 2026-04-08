@@ -57,6 +57,10 @@ class AuthService {
 
     await cache.set(`auth:state:user:${user.id}`, 'logged_in');
 
+    await Try.execute(() => emailService.sendWelcomeEmail(user.email, user.name)).orElseLogWarning(
+      `Failed to send welcome email to ${user.email}`
+    );
+
     return {
       user: {
         id: user.id,

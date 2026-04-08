@@ -4,6 +4,7 @@ import s3Service from '@/shared/storage/s3.service';
 import rabbitmqService from '@/shared/mq/rabbitmq.service';
 import logger from '@/shared/logger';
 import { Try } from '@/shared/utils/Try';
+import { emailService } from '@/shared/email';
 
 class ContributionService {
   private parseContributionId(id: string): number {
@@ -237,6 +238,8 @@ class ContributionService {
 
       logger.info(`Message published to RabbitMQ for contribution: ${contribution.id}`);
 
+      await this.notifyFacultyCoordinatorsOnSubmission(contribution.id);
+
       return {
         contribution,
         docxFile: {
@@ -249,6 +252,79 @@ class ContributionService {
         images: uploadedImages,
       };
     }).orElseThrow('Error creating student contribution');
+  }
+
+  private async notifyFacultyCoordinatorsOnSubmission(contributionId: number): Promise<void> {
+    await Try.execute(async () => {
+      const contribution = await prisma.contribution.findUnique({
+        where: { id: contributionId },
+        include: {
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          faculty: {
+            select: {
+              facultyName: true,
+            },
+          },
+        },
+      });
+
+      if (!contribution) {
+        logger.warn(`Skipping coordinator email: contribution ${contributionId} not found`);
+        return;
+      }
+
+      const coordinators = await prisma.user.findMany({
+        where: {
+          facultyId: contribution.facultyId,
+          isActive: true,
+          role: {
+            roleCode: 'COORDINATOR',
+          },
+        },
+        select: {
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      });
+
+      if (coordinators.length === 0) {
+        logger.warn(
+          `No active coordinators found for faculty ${contribution.facultyId} after contribution ${contributionId} submission`
+        );
+        return;
+      }
+
+      const studentName =
+        `${contribution.user.firstName || ''} ${contribution.user.lastName || ''}`.trim() ||
+        contribution.user.email;
+      const facultyName = contribution.faculty.facultyName;
+
+      for (const coordinator of coordinators) {
+        const coordinatorName =
+          `${coordinator.firstName || ''} ${coordinator.lastName || ''}`.trim() || coordinator.email;
+
+        await emailService.sendContributionSubmittedEmail(coordinator.email, {
+          coordinatorName,
+          studentName,
+          facultyName,
+          contributionTitle: contribution.title,
+          contributionId: contribution.id,
+        });
+      }
+
+      logger.info(
+        `Coordinator notification emails sent for contribution ${contributionId} to ${coordinators.length} coordinator(s)`
+      );
+    }).orElseLogWarning(
+      `Failed to notify faculty coordinators for contribution ${contributionId}`
+    );
   }
 
   async getContributionsByStudentId(studentId: number, limit: number, offset: number) {
