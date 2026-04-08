@@ -21,8 +21,8 @@ services:
       - REDIS_PORT=6379
       - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - JWT_EXPIRES_IN=7d
-      - RESEND_API_KEY=re_hQ7FSPKL_BsSjC4oM8bCZzQyy7tZLVHdp
-      - EMAIL_FROM=onboarding@resend.dev
+      - RESEND_API_KEY=re_Ee274hFU_DrG9wa7bDN88gn1bs2qyJidQ
+      - EMAIL_FROM=notification@librarease.org
       - APP_URL=http://localhost:3000
       # MinIO (Local S3) Configuration
       - AWS_REGION=us-east-1
