@@ -23,5 +23,10 @@ router.get(
   authorize(ROLES.ADMIN),
   adminController.listFacultyUsers
 );
-
+router.get(
+    '/roles',
+    authenticate,
+    authorize(ROLES.ADMIN),
+    adminController.getAllRoles
+);
 export default router;

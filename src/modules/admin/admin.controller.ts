@@ -4,6 +4,13 @@ import adminService from './admin.service';
 import { successResponse } from '@/utils/response';
 
 class AdminController {
+  getAllRoles = asyncHandler(async (req: Request, res: Response) => {
+    const roles = await adminService.getAllRoles();
+    res.json(
+      successResponse(roles, req.requestId || 'unknown', { message: 'Roles retrieved' })
+    );
+  });
+
   assignUserFaculty = asyncHandler(async (req: Request, res: Response) => {
     const body = req.body as { facultyId?: string | number | null };
     const facultyId =

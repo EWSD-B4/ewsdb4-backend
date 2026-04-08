@@ -6,6 +6,12 @@ import { ROLES } from '@/constants/roles';
 const rolesRequiringFaculty = new Set<string>([ROLES.STUDENT, ROLES.COORDINATOR]);
 
 class AdminService {
+  async getAllRoles() {
+    return prisma.role.findMany({
+      orderBy: { id: 'asc' },
+    });
+  }
+
   async assignUserFaculty(userId: string, facultyId: string | null) {
     const userIdNum = parseInt(userId, 10);
     if (!Number.isFinite(userIdNum)) {
