@@ -3,6 +3,7 @@ import { asyncHandler } from '@/middleware/asyncHandler';
 import documentContentService from './document-content.service';
 import { successResponse } from '@/utils/response';
 import { AppError } from '@/middleware/errorHandler';
+import { db as prisma } from '@/shared/database';
 
 class DocumentContentController {
   /**
@@ -55,6 +56,20 @@ class DocumentContentController {
       throw new AppError('Invalid contribution ID', 400, 'VALIDATION_ERROR');
     }
 
+    if (req.user?.role !== 'ADMIN') {
+      const contribution = await prisma.contribution.findUnique({
+        where: { id: contributionId },
+        select: { facultyId: true },
+      });
+      if (!contribution) {
+        throw new AppError('Contribution not found', 404, 'NOT_FOUND');
+      }
+      const userFacultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : null;
+      if (contribution.facultyId !== userFacultyId) {
+        throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
+      }
+    }
+
     const contents = await documentContentService.getByContributionId(contributionId);
 
     res.json(
@@ -86,6 +101,20 @@ class DocumentContentController {
 
     if (!Number.isFinite(contributionId)) {
       throw new AppError('Invalid contribution ID', 400, 'VALIDATION_ERROR');
+    }
+
+    if (req.user?.role !== 'ADMIN') {
+      const contribution = await prisma.contribution.findUnique({
+        where: { id: contributionId },
+        select: { facultyId: true },
+      });
+      if (!contribution) {
+        throw new AppError('Contribution not found', 404, 'NOT_FOUND');
+      }
+      const userFacultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : null;
+      if (contribution.facultyId !== userFacultyId) {
+        throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
+      }
     }
 
     const stats = await documentContentService.getStatisticsByContributionId(contributionId);
