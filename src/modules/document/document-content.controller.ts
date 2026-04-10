@@ -27,11 +27,17 @@ class DocumentContentController {
       return;
     }
 
+    const contribution = await prisma.contribution.findUnique({
+      where: { id: content.contributionId },
+      select: { title: true },
+    });
+
     res.json(
       successResponse(
         {
           contributionFileId: content.contributionFileId,
           contributionId: content.contributionId,
+          title: contribution?.title ?? null,
           content: content.tiptapJson,
           uploadedImages: content.uploadedImages || [],
           extractedImages: content.extractedImages || [],
@@ -70,12 +76,19 @@ class DocumentContentController {
       }
     }
 
-    const contents = await documentContentService.getByContributionId(contributionId);
+    const [contents, contribution] = await Promise.all([
+      documentContentService.getByContributionId(contributionId),
+      prisma.contribution.findUnique({
+        where: { id: contributionId },
+        select: { title: true },
+      }),
+    ]);
 
     res.json(
       successResponse(
         {
           contributionId,
+          title: contribution?.title ?? null,
           documents: contents.map((content) => ({
             contributionFileId: content.contributionFileId,
             data: content.tiptapJson,
