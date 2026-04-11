@@ -6,6 +6,24 @@ import logger from '@/shared/logger';
 import { Try } from '@/shared/utils/Try';
 import { emailService } from '@/shared/email';
 
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  draft:        ['submitted'],
+  submitted:    ['under_review'],
+  under_review: ['selected', 'rejected'],
+  selected:     ['published'],
+  rejected:     ['submitted'],
+  published:    [],
+};
+
+function assertValidTransition(from: string, to: string): void {
+  const allowed = VALID_TRANSITIONS[from] ?? [];
+  if (!allowed.includes(to)) {
+    throw new BadRequestError(
+      `Cannot transition from '${from}' to '${to}'. Allowed next states: [${allowed.join(', ') || 'none'}]`
+    );
+  }
+}
+
 class ContributionService {
   private parseContributionId(id: string): number {
     const idNum = parseInt(id, 10);
@@ -371,6 +389,8 @@ class ContributionService {
         throw new NotFoundError('Contribution not found or does not belong to your faculty');
       }
 
+      assertValidTransition(contribution.status, newStatus);
+
       // Update status
       const updated = await prisma.contribution.update({
         where: { id: contributionId },
@@ -430,6 +450,8 @@ class ContributionService {
       if (!contribution) {
         throw new NotFoundError('Contribution not found or does not belong to your faculty');
       }
+
+      assertValidTransition(contribution.status, 'selected');
 
       // Check if selection is still allowed (before final closure date)
       const now = new Date();
@@ -511,6 +533,8 @@ class ContributionService {
       if (!contribution) {
         throw new NotFoundError('Contribution not found or does not belong to your faculty');
       }
+
+      assertValidTransition(contribution.status, 'rejected');
 
       // Check if rejection is still allowed (before final closure date)
       const now = new Date();
