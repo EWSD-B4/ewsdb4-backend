@@ -91,9 +91,18 @@ class DocumentContentController {
     }
 
     const userRole = req.user?.role as string;
+    const requesterId = parseInt(String(req.user?.id), 10);
+    const userFacultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : null;
 
-    if (userRole === 'GUEST') {
-      const userFacultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : null;
+    if (userRole === 'STUDENT') {
+      if (contribution.user.id !== requesterId) {
+        throw new AppError('Access denied: you can only view your own contribution content', 403, 'FORBIDDEN');
+      }
+    } else if (userRole === 'COORDINATOR') {
+      if (contribution.facultyId !== userFacultyId) {
+        throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
+      }
+    } else if (userRole === 'GUEST') {
       if (contribution.status !== 'selected') {
         throw new AppError('Access denied: only selected contributions are accessible', 403, 'FORBIDDEN');
       }
@@ -148,20 +157,31 @@ class DocumentContentController {
     }
 
     const userRole = req.user?.role as string;
-    if (userRole === 'GUEST') {
+    if (userRole !== 'ADMIN' && userRole !== 'MANAGER') {
       const contribution = await prisma.contribution.findUnique({
         where: { id: contributionId },
-        select: { facultyId: true, status: true },
+        select: { userId: true, facultyId: true, status: true },
       });
       if (!contribution) {
         throw new AppError('Contribution not found', 404, 'NOT_FOUND');
       }
-      if (contribution.status !== 'selected') {
-        throw new AppError('Access denied: only selected contributions are accessible', 403, 'FORBIDDEN');
-      }
+      const requesterId = parseInt(String(req.user?.id), 10);
       const userFacultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : null;
-      if (contribution.facultyId !== userFacultyId) {
-        throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
+      if (userRole === 'STUDENT') {
+        if (contribution.userId !== requesterId) {
+          throw new AppError('Access denied: you can only view your own contribution content', 403, 'FORBIDDEN');
+        }
+      } else if (userRole === 'COORDINATOR') {
+        if (contribution.facultyId !== userFacultyId) {
+          throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
+        }
+      } else if (userRole === 'GUEST') {
+        if (contribution.status !== 'selected') {
+          throw new AppError('Access denied: only selected contributions are accessible', 403, 'FORBIDDEN');
+        }
+        if (contribution.facultyId !== userFacultyId) {
+          throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
+        }
       }
     }
 
