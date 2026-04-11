@@ -42,11 +42,50 @@ class ContributionService {
         skip: offset,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          faculty: {
+            select: {
+              id: true,
+              facultyName: true,
+              facultyCode: true,
+            },
+          },
+          academicYear: {
+            select: {
+              id: true,
+              yearName: true,
+              isCurrent: true,
+              isActive: true,
+            },
+          },
+        },
       }),
       prisma.contribution.count({ where }),
     ]);
 
-    return { items, total, limit, offset };
+    const simplifiedItems = items.map((c: any) => ({
+      id: c.id,
+      title: c.title,
+      status: c.status,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      student: c.user
+        ? `${c.user.firstName} ${c.user.lastName}` : null,
+      faculty: c.faculty ? c.faculty.facultyName : null,
+      academicYear: c.academicYear
+        ? { id: c.academicYear.id, yearName: c.academicYear.yearName, isCurrent: c.academicYear.isCurrent, isActive: c.academicYear.isActive }
+        : null,
+    }));
+
+    return { items: simplifiedItems, total, limit, offset };
   }
 
   async getCoordinatorContribution(facultyId: number, id: string) {
