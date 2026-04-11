@@ -5,6 +5,8 @@ import { successResponse } from '@/utils/response';
 import { validate } from '@/middleware/validate';
 import { createCommentSchema, updateCommentSchema } from './comment.validation';
 import { CreateCommentRequest, UpdateCommentRequest } from './comment.types';
+import { AppError } from '@/middleware/errorHandler';
+import { db as prisma } from '@/shared/database';
 
 class CommentController {
   createComment = asyncHandler(async (req: Request, res: Response) => {
@@ -20,6 +22,9 @@ class CommentController {
   });
 
   getComments = asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user!;
+    const roleCode = user.role as string;
+
     const query = {
       contributionId: req.query.contributionId
         ? parseInt(String(req.query.contributionId), 10)
@@ -28,6 +33,23 @@ class CommentController {
       limit: req.query.limit ? parseInt(String(req.query.limit), 10) : undefined,
       offset: req.query.offset ? parseInt(String(req.query.offset), 10) : undefined,
     };
+
+    if (roleCode === 'STUDENT') {
+      if (!query.contributionId) {
+        throw new AppError('contributionId is required', 400, 'VALIDATION_ERROR');
+      }
+      const contribution = await prisma.contribution.findUnique({
+        where: { id: query.contributionId },
+        select: { userId: true },
+      });
+      if (!contribution) {
+        throw new AppError('Contribution not found', 404, 'NOT_FOUND');
+      }
+      const requesterId = parseInt(String(user.id), 10);
+      if (contribution.userId !== requesterId) {
+        throw new AppError('Access denied: you can only view comments on your own contributions', 403, 'FORBIDDEN');
+      }
+    }
 
     const result = await commentService.getComments(query);
 

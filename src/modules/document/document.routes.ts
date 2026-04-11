@@ -82,7 +82,7 @@ router.delete('/files/:fileId', authenticate, authorize('ADMIN', 'STUDENT'), doc
 
 // TipTap JSON Content Routes
 router.get('/content/contribution/:contributionId/stats', authenticate, authorize('ADMIN', 'MANAGER', 'COORDINATOR'), documentContentController.getStatsByContributionId);
-router.get('/content/contribution/:contributionId', authenticate, authorize('ADMIN', 'MANAGER', 'COORDINATOR', 'STUDENT'), documentContentController.getByContributionId);
+router.get('/content/contribution/:contributionId', authenticate, authorize('ADMIN', 'MANAGER', 'COORDINATOR', 'STUDENT', 'GUEST'), documentContentController.getByContributionId);
 router.get('/content/:contributionFileId/stats', authenticate, authorize('ADMIN', 'MANAGER', 'COORDINATOR'), documentContentController.getStatistics);
 router.get('/content/:contributionFileId', authenticate, authorize('ADMIN', 'MANAGER', 'COORDINATOR', 'STUDENT'), documentContentController.getByContributionFileId);
 

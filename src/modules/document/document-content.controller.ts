@@ -62,33 +62,70 @@ class DocumentContentController {
       throw new AppError('Invalid contribution ID', 400, 'VALIDATION_ERROR');
     }
 
-    if (req.user?.role !== 'ADMIN') {
-      const contribution = await prisma.contribution.findUnique({
-        where: { id: contributionId },
-        select: { facultyId: true },
-      });
-      if (!contribution) {
-        throw new AppError('Contribution not found', 404, 'NOT_FOUND');
-      }
-      const userFacultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : null;
-      if (contribution.facultyId !== userFacultyId) {
-        throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
+    const contribution = await prisma.contribution.findUnique({
+      where: { id: contributionId },
+      select: {
+        title: true,
+        facultyId: true,
+        status: true,
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        faculty: {
+          select: {
+            id: true,
+            facultyName: true,
+            facultyCode: true,
+          },
+        },
+      },
+    });
+
+    if (!contribution) {
+      throw new AppError('Contribution not found', 404, 'NOT_FOUND');
+    }
+
+    const userRole = req.user?.role as string;
+    const userFacultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : null;
+
+    if (userRole !== 'ADMIN') {
+      if (userRole === 'GUEST') {
+        if (contribution.status !== 'selected') {
+          throw new AppError('Access denied: only selected contributions are accessible', 403, 'FORBIDDEN');
+        }
+        if (contribution.facultyId !== userFacultyId) {
+          throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
+        }
+      } else {
+        if (contribution.facultyId !== userFacultyId) {
+          throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
+        }
       }
     }
 
-    const [contents, contribution] = await Promise.all([
-      documentContentService.getByContributionId(contributionId),
-      prisma.contribution.findUnique({
-        where: { id: contributionId },
-        select: { title: true },
-      }),
-    ]);
+    const contents = await documentContentService.getByContributionId(contributionId);
 
     res.json(
       successResponse(
         {
           contributionId,
-          title: contribution?.title ?? null,
+          title: contribution.title,
+          author: {
+            id: contribution.user.id,
+            firstName: contribution.user.firstName,
+            lastName: contribution.user.lastName,
+            email: contribution.user.email,
+          },
+          faculty: {
+            id: contribution.faculty.id,
+            facultyName: contribution.faculty.facultyName,
+            facultyCode: contribution.faculty.facultyCode,
+          },
           documents: contents.map((content) => ({
             contributionFileId: content.contributionFileId,
             data: content.tiptapJson,
