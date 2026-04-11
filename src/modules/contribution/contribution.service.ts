@@ -170,7 +170,7 @@ class ContributionService {
         });
 
         // Create image file records
-        const imageRecords = [];
+        const imageRecords: { fileSize: bigint | null; id: number; createdAt: Date; contributionId: number; fileType: string | null; originalName: string | null; storedName: string | null; filePath: string | null; isExtracted: boolean; uploadedAt: Date | null; }[] = [];
         for (const imageFile of imageFiles) {
           const imageRecord = await tx.contributionFile.create({
             data: {
@@ -630,7 +630,7 @@ class ContributionService {
           },
         },
       });
-      if (!coordinatorComment) {
+      if (!coordinatorComment && contribution.status !== 'flagged_plagiarism') {
         throw new BadRequestError(
           'Cannot resubmit: a coordinator must leave a comment before you can replace files'
         );
