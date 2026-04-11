@@ -73,7 +73,7 @@ class DocumentProcessorTipTap {
     });
 
     if (documentContent.length > 0) {
-      DocumentContentModel.deleteMany({
+      await DocumentContentModel.deleteMany({
         where: { contributionFileId },
       });
     }
