@@ -7,12 +7,13 @@ import { Try } from '@/shared/utils/Try';
 import { emailService } from '@/shared/email';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  draft:        ['submitted'],
-  submitted:    ['under_review'],
-  under_review: ['selected', 'rejected'],
-  selected:     ['published'],
-  rejected:     ['submitted'],
-  published:    [],
+  draft:              ['submitted'],
+  submitted:          ['under_review'],
+  under_review:       ['selected', 'rejected', 'flagged_plagiarism'],
+  selected:           ['published'],
+  rejected:           ['submitted'],
+  flagged_plagiarism: ['submitted'],
+  published:          [],
 };
 
 function assertValidTransition(from: string, to: string): void {
@@ -610,6 +611,29 @@ class ContributionService {
 
       if (!contribution) {
         throw new NotFoundError('Contribution not found or you do not have permission to update it');
+      }
+
+      // Only allow file replacement for rejected or flagged contributions
+      const replaceableStatuses = ['rejected', 'flagged_plagiarism'];
+      if (!replaceableStatuses.includes(contribution.status)) {
+        throw new BadRequestError(
+          `Files can only be replaced when contribution is rejected or flagged for plagiarism. Current status: '${contribution.status}'`
+        );
+      }
+
+      // Require at least one coordinator comment before resubmission
+      const coordinatorComment = await prisma.comment.findFirst({
+        where: {
+          contributionId,
+          user: {
+            role: { roleCode: 'COORDINATOR' },
+          },
+        },
+      });
+      if (!coordinatorComment) {
+        throw new BadRequestError(
+          'Cannot resubmit: a coordinator must leave a comment before you can replace files'
+        );
       }
 
       // DOCX mime type check
