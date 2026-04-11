@@ -66,6 +66,18 @@ class DocumentProcessorTipTap {
     contributionId: number
   ): Promise<void> {
     logger.info(`Processing Word document to TipTap JSON: contributionFileId=${contributionFileId}`);
+
+    // if there is already content, delete it
+    const documentContent = await DocumentContentModel.find({
+      where: { contributionFileId },
+    });
+
+    if (documentContent.length > 0) {
+      DocumentContentModel.deleteMany({
+        where: { contributionFileId },
+      });
+    }
+
     const startTime = Date.now();
 
     return Try.execute(async () => {
