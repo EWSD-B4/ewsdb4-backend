@@ -69,12 +69,12 @@ class DocumentProcessorTipTap {
 
     // if there is already content, delete it
     const documentContent = await DocumentContentModel.find({
-      where: { contributionFileId },
+      where: { contributionId },
     });
 
     if (documentContent.length > 0) {
       await DocumentContentModel.deleteMany({
-        where: { contributionFileId },
+        where: { contributionId },
       });
     }
 
