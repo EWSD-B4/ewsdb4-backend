@@ -93,7 +93,7 @@ class DocumentContentController {
     const userRole = req.user?.role as string;
     const userFacultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : null;
 
-    if (userRole !== 'ADMIN') {
+    if (userRole !== 'ADMIN' && userRole !== 'MANAGER') {
       if (userRole === 'GUEST') {
         if (contribution.status !== 'selected') {
           throw new AppError('Access denied: only selected contributions are accessible', 403, 'FORBIDDEN');
@@ -153,7 +153,8 @@ class DocumentContentController {
       throw new AppError('Invalid contribution ID', 400, 'VALIDATION_ERROR');
     }
 
-    if (req.user?.role !== 'ADMIN') {
+    const userRole = req.user?.role as string;
+    if (userRole !== 'ADMIN' && userRole !== 'MANAGER') {
       const contribution = await prisma.contribution.findUnique({
         where: { id: contributionId },
         select: { facultyId: true },
