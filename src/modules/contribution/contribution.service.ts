@@ -77,12 +77,9 @@ class ContributionService {
       status: c.status,
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
-      student: c.user
-        ? `${c.user.firstName} ${c.user.lastName}` : null,
+      student: c.user ? `${c.user.firstName} ${c.user.lastName}` : null,
       faculty: c.faculty ? c.faculty.facultyName : null,
-      academicYear: c.academicYear
-        ? { id: c.academicYear.id, yearName: c.academicYear.yearName, isCurrent: c.academicYear.isCurrent, isActive: c.academicYear.isActive }
-        : null,
+      academicYear: c.academicYear ? c.academicYear.yearName : null,
     }));
 
     return { items: simplifiedItems, total, limit, offset };
