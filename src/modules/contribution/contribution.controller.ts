@@ -418,8 +418,19 @@ class ContributionController {
       prisma.contribution.count({ where }),
     ]);
 
+    const simplifiedItems = items.map((c: any) => ({
+      id: c.id,
+      title: c.title,
+      status: c.status,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      student: c.user ? `${c.user.firstName} ${c.user.lastName}` : null,
+      faculty: c.faculty ? c.faculty.facultyName : null,
+      academicYear: c.academicYear ? c.academicYear.yearName : null,
+    }));
+
     res.json(
-      successResponse({ items, total }, req.requestId || 'unknown', {
+      successResponse({ simplifiedItems, total }, req.requestId || 'unknown', {
         message: 'Selected contributions retrieved',
         pagination: { limit, offset, total },
       })
