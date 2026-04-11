@@ -115,9 +115,16 @@ class AcademicYearService {
         }
       }
 
+      if (data.isActive === true) {
+        await db.academicYear.updateMany({
+          where: { isActive: true, id: { not: id } },
+          data: { isActive: false, isCurrent: false },
+        });
+      }
+
       if (data.isCurrent === true) {
         await db.academicYear.updateMany({
-          where: { isCurrent: true },
+          where: { isCurrent: true, id: { not: id } },
           data: { isCurrent: false },
         });
       }
