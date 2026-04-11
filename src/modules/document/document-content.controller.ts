@@ -6,6 +6,53 @@ import { AppError } from '@/middleware/errorHandler';
 import { db as prisma } from '@/shared/database';
 
 class DocumentContentController {
+  private async fetchContributionContent(contributionId: number) {
+    const contribution = await prisma.contribution.findUnique({
+      where: { id: contributionId },
+      select: {
+        title: true,
+        facultyId: true,
+        status: true,
+        userId: true,
+        user: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        faculty: {
+          select: { id: true, facultyName: true, facultyCode: true },
+        },
+      },
+    });
+    return contribution;
+  }
+
+  private buildContentResponse(
+    contributionId: number,
+    contribution: NonNullable<Awaited<ReturnType<DocumentContentController['fetchContributionContent']>>>,
+    contents: Awaited<ReturnType<typeof documentContentService.getByContributionId>>
+  ) {
+    return {
+      contributionId,
+      title: contribution.title,
+      author: {
+        id: contribution.user.id,
+        firstName: contribution.user.firstName,
+        lastName: contribution.user.lastName,
+        email: contribution.user.email,
+      },
+      faculty: {
+        id: contribution.faculty.id,
+        facultyName: contribution.faculty.facultyName,
+        facultyCode: contribution.faculty.facultyCode,
+      },
+      documents: contents.map((c) => ({
+        contributionFileId: c.contributionFileId,
+        data: c.tiptapJson,
+        uploadedImages: c.uploadedImages || [],
+        extractedImages: c.extractedImages || [],
+        metadata: c.metadata,
+      })),
+    };
+  }
   /**
    * Get TipTap JSON content by contribution file ID
    * GET /api/v1/documents/content/:contributionFileId
@@ -57,90 +104,91 @@ class DocumentContentController {
    */
   getByContributionId = asyncHandler(async (req: Request, res: Response) => {
     const contributionId = parseInt(String(req.params.contributionId), 10);
-
     if (!Number.isFinite(contributionId)) {
       throw new AppError('Invalid contribution ID', 400, 'VALIDATION_ERROR');
     }
-
-    const contribution = await prisma.contribution.findUnique({
-      where: { id: contributionId },
-      select: {
-        title: true,
-        facultyId: true,
-        status: true,
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        faculty: {
-          select: {
-            id: true,
-            facultyName: true,
-            facultyCode: true,
-          },
-        },
-      },
-    });
-
+    const contribution = await this.fetchContributionContent(contributionId);
     if (!contribution) {
       throw new AppError('Contribution not found', 404, 'NOT_FOUND');
     }
-
-    const userRole = req.user?.role as string;
-    const requesterId = parseInt(String(req.user?.id), 10);
-    const userFacultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : null;
-
-    if (userRole === 'STUDENT') {
-      if (contribution.user.id !== requesterId) {
-        throw new AppError('Access denied: you can only view your own contribution content', 403, 'FORBIDDEN');
-      }
-    } else if (userRole === 'COORDINATOR') {
-      if (contribution.facultyId !== userFacultyId) {
-        throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
-      }
-    } else if (userRole === 'GUEST') {
-      if (contribution.status !== 'selected') {
-        throw new AppError('Access denied: only selected contributions are accessible', 403, 'FORBIDDEN');
-      }
-      if (contribution.facultyId !== userFacultyId) {
-        throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
-      }
-    }
-
     const contents = await documentContentService.getByContributionId(contributionId);
-
     res.json(
       successResponse(
-        {
-          contributionId,
-          title: contribution.title,
-          author: {
-            id: contribution.user.id,
-            firstName: contribution.user.firstName,
-            lastName: contribution.user.lastName,
-            email: contribution.user.email,
-          },
-          faculty: {
-            id: contribution.faculty.id,
-            facultyName: contribution.faculty.facultyName,
-            facultyCode: contribution.faculty.facultyCode,
-          },
-          documents: contents.map((content) => ({
-            contributionFileId: content.contributionFileId,
-            data: content.tiptapJson,
-            uploadedImages: content.uploadedImages || [],
-            extractedImages: content.extractedImages || [],
-            metadata: content.metadata,
-          })),
-        },
+        this.buildContentResponse(contributionId, contribution, contents),
         req.requestId || 'unknown',
-        {
-          message: `Found ${contents.length} document(s)`,
-        }
+        { message: `Found ${contents.length} document(s)` }
+      )
+    );
+  });
+
+  getForStudent = asyncHandler(async (req: Request, res: Response) => {
+    const contributionId = parseInt(String(req.params.id), 10);
+    if (!Number.isFinite(contributionId)) {
+      throw new AppError('Invalid contribution ID', 400, 'VALIDATION_ERROR');
+    }
+    const contribution = await this.fetchContributionContent(contributionId);
+    if (!contribution) {
+      throw new AppError('Contribution not found', 404, 'NOT_FOUND');
+    }
+    const requesterId = parseInt(String(req.user?.id), 10);
+    if (contribution.userId !== requesterId) {
+      throw new AppError('Access denied: you can only view your own contribution content', 403, 'FORBIDDEN');
+    }
+    const contents = await documentContentService.getByContributionId(contributionId);
+    res.json(
+      successResponse(
+        this.buildContentResponse(contributionId, contribution, contents),
+        req.requestId || 'unknown',
+        { message: `Found ${contents.length} document(s)` }
+      )
+    );
+  });
+
+  getForCoordinator = asyncHandler(async (req: Request, res: Response) => {
+    const contributionId = parseInt(String(req.params.id), 10);
+    if (!Number.isFinite(contributionId)) {
+      throw new AppError('Invalid contribution ID', 400, 'VALIDATION_ERROR');
+    }
+    const contribution = await this.fetchContributionContent(contributionId);
+    if (!contribution) {
+      throw new AppError('Contribution not found', 404, 'NOT_FOUND');
+    }
+    const userFacultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : null;
+    if (contribution.facultyId !== userFacultyId) {
+      throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
+    }
+    const contents = await documentContentService.getByContributionId(contributionId);
+    res.json(
+      successResponse(
+        this.buildContentResponse(contributionId, contribution, contents),
+        req.requestId || 'unknown',
+        { message: `Found ${contents.length} document(s)` }
+      )
+    );
+  });
+
+  getForGuest = asyncHandler(async (req: Request, res: Response) => {
+    const contributionId = parseInt(String(req.params.id), 10);
+    if (!Number.isFinite(contributionId)) {
+      throw new AppError('Invalid contribution ID', 400, 'VALIDATION_ERROR');
+    }
+    const contribution = await this.fetchContributionContent(contributionId);
+    if (!contribution) {
+      throw new AppError('Contribution not found', 404, 'NOT_FOUND');
+    }
+    if (contribution.status !== 'selected') {
+      throw new AppError('Access denied: only selected contributions are accessible', 403, 'FORBIDDEN');
+    }
+    const userFacultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : null;
+    if (contribution.facultyId !== userFacultyId) {
+      throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
+    }
+    const contents = await documentContentService.getByContributionId(contributionId);
+    res.json(
+      successResponse(
+        this.buildContentResponse(contributionId, contribution, contents),
+        req.requestId || 'unknown',
+        { message: `Found ${contents.length} document(s)` }
       )
     );
   });

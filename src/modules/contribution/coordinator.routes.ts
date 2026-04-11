@@ -4,6 +4,7 @@ import { authenticate } from '@/middleware/auth';
 import { requireFacultyIfRoleNeedsIt } from '@/middleware/facultyScope';
 import { validate } from '@/middleware/validation';
 import contributionController from './contribution.controller';
+import documentContentController from '@/modules/document/document-content.controller';
 import { ROLES } from '@/constants/roles';
 import { selectContributionSchema, rejectContributionSchema, updateStatusSchema } from './contribution.validation';
 
@@ -48,6 +49,14 @@ router.post(
   requireFacultyIfRoleNeedsIt,
   validate(rejectContributionSchema),
   contributionController.rejectContribution
+);
+
+router.get(
+  '/:id/content',
+  authenticate,
+  authorize(ROLES.COORDINATOR),
+  requireFacultyIfRoleNeedsIt,
+  documentContentController.getForCoordinator
 );
 
 export default router;

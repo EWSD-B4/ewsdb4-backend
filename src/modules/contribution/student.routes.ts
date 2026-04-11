@@ -5,6 +5,7 @@ import { authorize } from '@/middleware/authorize';
 import { ROLES } from '@/constants/roles';
 import { requireFacultyIfRoleNeedsIt } from '@/middleware/facultyScope';
 import contributionController from './contribution.controller';
+import documentContentController from '@/modules/document/document-content.controller';
 
 const router = Router();
 
@@ -76,5 +77,11 @@ router.delete(
   contributionController.deleteStudentContribution
 );
 
+router.get(
+  '/contributions/:id/content',
+  authenticate,
+  authorize(ROLES.STUDENT),
+  documentContentController.getForStudent
+);
 
 export default router;
