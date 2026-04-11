@@ -91,20 +91,14 @@ class DocumentContentController {
     }
 
     const userRole = req.user?.role as string;
-    const userFacultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : null;
 
-    if (userRole !== 'ADMIN' && userRole !== 'MANAGER') {
-      if (userRole === 'GUEST') {
-        if (contribution.status !== 'selected') {
-          throw new AppError('Access denied: only selected contributions are accessible', 403, 'FORBIDDEN');
-        }
-        if (contribution.facultyId !== userFacultyId) {
-          throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
-        }
-      } else {
-        if (contribution.facultyId !== userFacultyId) {
-          throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
-        }
+    if (userRole === 'GUEST') {
+      const userFacultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : null;
+      if (contribution.status !== 'selected') {
+        throw new AppError('Access denied: only selected contributions are accessible', 403, 'FORBIDDEN');
+      }
+      if (contribution.facultyId !== userFacultyId) {
+        throw new AppError('Access denied: contribution does not belong to your faculty', 403, 'FORBIDDEN');
       }
     }
 
@@ -154,13 +148,16 @@ class DocumentContentController {
     }
 
     const userRole = req.user?.role as string;
-    if (userRole !== 'ADMIN' && userRole !== 'MANAGER') {
+    if (userRole === 'GUEST') {
       const contribution = await prisma.contribution.findUnique({
         where: { id: contributionId },
-        select: { facultyId: true },
+        select: { facultyId: true, status: true },
       });
       if (!contribution) {
         throw new AppError('Contribution not found', 404, 'NOT_FOUND');
+      }
+      if (contribution.status !== 'selected') {
+        throw new AppError('Access denied: only selected contributions are accessible', 403, 'FORBIDDEN');
       }
       const userFacultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : null;
       if (contribution.facultyId !== userFacultyId) {
