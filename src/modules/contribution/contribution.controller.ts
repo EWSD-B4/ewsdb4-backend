@@ -341,11 +341,13 @@ class ContributionController {
 
     const contributionId = parseInt(String(req.params.id), 10);
     const userId = parseInt(String(req.user.id), 10);
+    const title = req.body.title as string | undefined;
     const imageFiles = files?.images ?? [];
 
     const result = await contributionService.replaceContributionFiles(
       contributionId,
       userId,
+      title,
       docxFile,
       imageFiles
     );

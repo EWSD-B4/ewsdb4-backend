@@ -651,6 +651,7 @@ class ContributionService {
   async replaceContributionFiles(
     contributionId: number,
     userId: number,
+    title: string | undefined,
     docxFile: Express.Multer.File,
     imageFiles: Express.Multer.File[] = []
   ) {
@@ -666,19 +667,19 @@ class ContributionService {
       }
 
       // Require at least one coordinator comment before resubmission
-      const coordinatorComment = await prisma.comment.findFirst({
-        where: {
-          contributionId,
-          user: {
-            role: { roleCode: 'COORDINATOR' },
-          },
-        },
-      });
-      if (!coordinatorComment && contribution.status !== 'flagged_plagiarism') {
-        throw new BadRequestError(
-          'Cannot resubmit: a coordinator must leave a comment before you can replace files'
-        );
-      }
+      // const coordinatorComment = await prisma.comment.findFirst({
+      //   where: {
+      //     contributionId,
+      //     user: {
+      //       role: { roleCode: 'COORDINATOR' },
+      //     },
+      //   },
+      // });
+      // if (!coordinatorComment && contribution.status !== 'flagged_plagiarism') {
+      //   throw new BadRequestError(
+      //     'Cannot resubmit: a coordinator must leave a comment before you can replace files'
+      //   );
+      // }
 
       // DOCX mime type check
       const allowedDocxMimeTypes = [
@@ -805,9 +806,14 @@ class ContributionService {
       ]);
 
       // Reset contribution status to submitted so it re-enters the review pipeline
+      // Update title only if provided
+      const updateData: any = { status: 'submitted', updatedAt: new Date() };
+      if (title !== undefined && title.trim() !== '') {
+        updateData.title = title.trim();
+      }
       await prisma.contribution.update({
         where: { id: contributionId },
-        data: { status: 'submitted', updatedAt: new Date() },
+        data: updateData,
       });
 
       // Re-queue for processing
