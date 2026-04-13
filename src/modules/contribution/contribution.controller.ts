@@ -708,6 +708,91 @@ class ContributionController {
       }
     })();
   };
+
+  getContributionsWithoutComments = asyncHandler(async (req: Request, res: Response) => {
+    const facultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : undefined;
+    if (!facultyId) {
+      throw new AppError('Faculty assignment required', 403, 'FORBIDDEN');
+    }
+
+    const now = new Date();
+    const contributions = await prisma.contribution.findMany({
+      where: {
+        status: 'submitted',
+        facultyId,
+        comments: { none: {} },
+      },
+      include: {
+        user: { select: { firstName: true, lastName: true } },
+        faculty: { select: { facultyName: true } },
+        academicYear: { select: { yearName: true } },
+      },
+      orderBy: { submittedAt: 'asc' },
+    });
+
+    const items = contributions.map((c) => ({
+      id: c.id,
+      title: c.title,
+      status: c.status,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      student: `${c.user.firstName || ''} ${c.user.lastName || ''}`.trim(),
+      faculty: c.faculty.facultyName,
+      academicYear: c.academicYear.yearName,
+    }));
+
+    res.json(
+      successResponse(
+        { items, total: items.length },
+        req.requestId || 'unknown',
+        { message: 'Contributions retrieved' }
+      )
+    );
+  });
+
+  getOverdueContributions = asyncHandler(async (req: Request, res: Response) => {
+    const facultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : undefined;
+    if (!facultyId) {
+      throw new AppError('Faculty assignment required', 403, 'FORBIDDEN');
+    }
+
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+
+    const contributions = await prisma.contribution.findMany({
+      where: {
+        status: 'submitted',
+        facultyId,
+        submittedAt: { lt: fourteenDaysAgo },
+        comments: { none: {} },
+      },
+      include: {
+        user: { select: { firstName: true, lastName: true } },
+        faculty: { select: { facultyName: true } },
+        academicYear: { select: { yearName: true } },
+      },
+      orderBy: { submittedAt: 'asc' },
+    });
+
+    const items = contributions.map((c) => ({
+      id: c.id,
+      title: c.title,
+      status: c.status,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      student: `${c.user.firstName || ''} ${c.user.lastName || ''}`.trim(),
+      faculty: c.faculty.facultyName,
+      academicYear: c.academicYear.yearName,
+    }));
+
+    res.json(
+      successResponse(
+        { items, total: items.length },
+        req.requestId || 'unknown',
+        { message: 'Contributions retrieved' }
+      )
+    );
+  });
 }
 
 export default new ContributionController();

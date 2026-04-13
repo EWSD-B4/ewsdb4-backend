@@ -11,12 +11,29 @@ import { selectContributionSchema, rejectContributionSchema, updateStatusSchema 
 const router = Router();
 
 router.get(
+  '/without-comments',
+  authenticate,
+  authorize(ROLES.COORDINATOR),
+  requireFacultyIfRoleNeedsIt,
+  contributionController.getContributionsWithoutComments
+);
+
+router.get(
+  '/overdue',
+  authenticate,
+  authorize(ROLES.COORDINATOR),
+  requireFacultyIfRoleNeedsIt,
+  contributionController.getOverdueContributions
+);
+
+router.get(
   '/',
   authenticate,
   authorize(ROLES.MANAGER, ROLES.COORDINATOR),
   requireFacultyIfRoleNeedsIt,
   contributionController.listCoordinator
 );
+
 router.get(
   '/:id',
   authenticate,
