@@ -653,7 +653,16 @@ class ContributionController {
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`);
 
-    const archive = archiver('zip', { zlib: { level: 6 } });
+    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    archive.on('error', (err) => {
+      res.status(500).json({
+        success: false,
+        message: 'Error creating ZIP file',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+      });
+    });
+
     archive.pipe(res);
 
     for (const contribution of contributions) {
@@ -662,10 +671,11 @@ class ContributionController {
 
       try {
         const buffer = await s3Service.downloadFile(docxFile.filePath);
-        const authorName = `${contribution.user.firstName || ''}_${contribution.user.lastName || ''}`.trim();
-        const filename = `${contribution.faculty.facultyCode}_${contribution.id}_${authorName}_${docxFile.originalName}`;
+        const authorName = `${contribution.user.firstName || ''}_${contribution.user.lastName || ''}`.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+        const sanitizedOriginalName = docxFile.originalName?.replace(/[^a-zA-Z0-9._-]/g, '_') || 'document.docx';
+        const filename = `${contribution.faculty.facultyCode}_${contribution.id}_${authorName}_${sanitizedOriginalName}`;
         archive.append(buffer, { name: filename });
-      } catch {
+      } catch (error) {
         // skip files that fail to download
       }
     }
