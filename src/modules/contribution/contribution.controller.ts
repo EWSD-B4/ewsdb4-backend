@@ -598,13 +598,27 @@ class ContributionController {
       }),
     ]);
 
+    const formatContribution = (c: any) => ({
+      id: c.id,
+      title: c.title,
+      status: c.status,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      student: `${c.user.firstName || ''} ${c.user.lastName || ''}`.trim(),
+      faculty: c.faculty.facultyName,
+      academicYear: c.academicYear.yearName,
+    });
+
+    const items = [
+      ...contributionsWithoutComments.map(formatContribution),
+      ...contributionsOverdue.map(formatContribution),
+    ];
+
     res.json(
       successResponse(
         {
-          contributionsWithoutComments,
-          contributionsOverdue,
-          totalWithoutComments: contributionsWithoutComments.length,
-          totalOverdue: contributionsOverdue.length,
+          items,
+          total: items.length,
         },
         req.requestId || 'unknown',
         { message: 'Exception report retrieved' }
