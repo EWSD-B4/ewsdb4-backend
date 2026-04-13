@@ -7,6 +7,7 @@ import { AppError } from '@/middleware/errorHandler';
 import archiver from 'archiver';
 import s3Service from '@/shared/storage/s3.service';
 import academicYearService from '@/modules/academic-year/academic-year.service';
+import logger from '@/shared/logger';
 
 class ContributionController {
   listCoordinator = asyncHandler(async (req: Request, res: Response) => {
@@ -655,32 +656,56 @@ class ContributionController {
 
     const archive = archiver('zip', { zlib: { level: 9 } });
 
-    archive.on('error', (err) => {
-      res.status(500).json({
-        success: false,
-        message: 'Error creating ZIP file',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    return new Promise((resolve, reject) => {
+      archive.on('error', (err) => {
+        logger.error(`Archive error: ${err.message}`);
+        if (!res.headersSent) {
+          res.status(500).json({
+            success: false,
+            message: 'Error creating ZIP file',
+            error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+          });
+        }
+        reject(err);
       });
+
+      res.on('error', (err) => {
+        logger.error(`Response error: ${err.message}`);
+        archive.abort();
+        reject(err);
+      });
+
+      archive.pipe(res);
+
+      (async () => {
+        try {
+          let filesAdded = 0;
+          for (const contribution of contributions) {
+            const docxFile = contribution.files[0];
+            if (!docxFile?.filePath) continue;
+
+            try {
+              const buffer = await s3Service.downloadFile(docxFile.filePath);
+              const authorName = `${contribution.user.firstName || ''}_${contribution.user.lastName || ''}`.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+              const sanitizedOriginalName = docxFile.originalName?.replace(/[^a-zA-Z0-9._-]/g, '_') || 'document.docx';
+              const filename = `${contribution.faculty.facultyCode}_${contribution.id}_${authorName}_${sanitizedOriginalName}`;
+              archive.append(buffer, { name: filename });
+              filesAdded++;
+            } catch (error) {
+              logger.warn(`Failed to download file for contribution ${contribution.id}: ${error}`);
+            }
+          }
+
+          logger.info(`Added ${filesAdded} files to ZIP archive`);
+          await archive.finalize();
+          resolve(undefined);
+        } catch (error) {
+          logger.error(`Error adding files to archive: ${error}`);
+          archive.abort();
+          reject(error);
+        }
+      })();
     });
-
-    archive.pipe(res);
-
-    for (const contribution of contributions) {
-      const docxFile = contribution.files[0];
-      if (!docxFile?.filePath) continue;
-
-      try {
-        const buffer = await s3Service.downloadFile(docxFile.filePath);
-        const authorName = `${contribution.user.firstName || ''}_${contribution.user.lastName || ''}`.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-        const sanitizedOriginalName = docxFile.originalName?.replace(/[^a-zA-Z0-9._-]/g, '_') || 'document.docx';
-        const filename = `${contribution.faculty.facultyCode}_${contribution.id}_${authorName}_${sanitizedOriginalName}`;
-        archive.append(buffer, { name: filename });
-      } catch (error) {
-        // skip files that fail to download
-      }
-    }
-
-    await archive.finalize();
   });
 }
 
