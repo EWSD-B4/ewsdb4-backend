@@ -12,7 +12,7 @@ const router = Router();
 
 // Specific routes must come BEFORE parameterized routes
 router.get(
-  '/without-comments',
+  '/exception/without-comments',
   authenticate,
   authorize(ROLES.COORDINATOR),
   requireFacultyIfRoleNeedsIt,
@@ -20,7 +20,7 @@ router.get(
 );
 
 router.get(
-  '/overdue',
+  '/exception/overdue',
   authenticate,
   authorize(ROLES.COORDINATOR),
   requireFacultyIfRoleNeedsIt,
