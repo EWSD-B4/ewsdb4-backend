@@ -35,7 +35,7 @@ class ContributionService {
   }
 
   async listCoordinatorContributions(facultyId: number, limit: number, offset: number) {
-    const where = { facultyId };
+    const where = { facultyId, NOT: { status: 'flagged_plagiarism' } };
     const [items, total] = await Promise.all([
       prisma.contribution.findMany({
         where,
