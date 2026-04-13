@@ -12,7 +12,7 @@ const router = Router();
 
 // Specific routes must come BEFORE parameterized routes
 router.get(
-  '/exception/without-comments',
+  '/without-comments',
   authenticate,
   authorize(ROLES.COORDINATOR),
   requireFacultyIfRoleNeedsIt,
