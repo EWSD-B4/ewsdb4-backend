@@ -611,102 +611,103 @@ class ContributionController {
       )
     );
   });
-  downloadSelectedAsZip = asyncHandler(async (req: Request, res: Response) => {
-    const academicYearId = req.query.academicYearId
-      ? parseInt(req.query.academicYearId as string, 10)
-      : await academicYearService.getActiveAcademicYearId();
+  downloadSelectedAsZip = (req: Request, res: Response) => {
+    (async () => {
+      try {
+        const academicYearId = req.query.academicYearId
+          ? parseInt(req.query.academicYearId as string, 10)
+          : await academicYearService.getActiveAcademicYearId();
 
-    // Check if final closure date has passed
-    const academicYear = await prisma.academicYear.findUnique({
-      where: { id: academicYearId },
-      select: { closureFinalDate: true },
-    });
+        // Check if final closure date has passed
+        const academicYear = await prisma.academicYear.findUnique({
+          where: { id: academicYearId },
+          select: { closureFinalDate: true },
+        });
 
-    if (!academicYear) {
-      throw new AppError('Academic year not found', 404, 'NOT_FOUND');
-    }
+        if (!academicYear) {
+          res.status(404).json({
+            success: false,
+            message: 'Academic year not found',
+          });
+          return;
+        }
 
-    const now = new Date();
-    if (!academicYear.closureFinalDate || now < academicYear.closureFinalDate) {
-      throw new AppError(
-        'Download is only available after the final closure date',
-        403,
-        'FORBIDDEN'
-      );
-    }
+        const now = new Date();
+        if (!academicYear.closureFinalDate || now < academicYear.closureFinalDate) {
+          res.status(403).json({
+            success: false,
+            message: 'Download is only available after the final closure date',
+          });
+          return;
+        }
 
-    const where = { status: 'selected', academicYearId };
+        const where = { status: 'selected', academicYearId };
 
-    const contributions = await prisma.contribution.findMany({
-      where,
-      include: {
-        files: { where: { fileType: 'docx' }, orderBy: { createdAt: 'asc' }, take: 1 },
-        user: { select: { firstName: true, lastName: true } },
-        faculty: { select: { facultyCode: true } },
-      },
-    });
+        const contributions = await prisma.contribution.findMany({
+          where,
+          include: {
+            files: { where: { fileType: 'docx' }, orderBy: { createdAt: 'asc' }, take: 1 },
+            user: { select: { firstName: true, lastName: true } },
+            faculty: { select: { facultyCode: true } },
+          },
+        });
 
-    if (contributions.length === 0) {
-      throw new AppError('No selected contributions found', 404, 'NOT_FOUND');
-    }
+        if (contributions.length === 0) {
+          res.status(404).json({
+            success: false,
+            message: 'No selected contributions found',
+          });
+          return;
+        }
 
-    const zipFilename = `selected-contributions${academicYearId ? `-ay${academicYearId}` : ''}.zip`;
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`);
+        const zipFilename = `selected-contributions${academicYearId ? `-ay${academicYearId}` : ''}.zip`;
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`);
 
-    const archive = archiver('zip', { zlib: { level: 9 } });
+        const archive = archiver('zip', { zlib: { level: 9 } });
 
-    return new Promise((resolve, reject) => {
-      archive.on('error', (err) => {
-        logger.error(`Archive error: ${err.message}`);
+        archive.on('error', (err) => {
+          logger.error(`Archive error: ${err.message}`);
+          if (!res.headersSent) {
+            res.status(500).json({
+              success: false,
+              message: 'Error creating ZIP file',
+            });
+          }
+        });
+
+        archive.pipe(res);
+
+        let filesAdded = 0;
+        for (const contribution of contributions) {
+          const docxFile = contribution.files[0];
+          if (!docxFile?.filePath) continue;
+
+          try {
+            const buffer = await s3Service.downloadFile(docxFile.filePath);
+            const authorName = `${contribution.user.firstName || ''}_${contribution.user.lastName || ''}`.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+            const sanitizedOriginalName = docxFile.originalName?.replace(/[^a-zA-Z0-9._-]/g, '_') || 'document.docx';
+            const filename = `${contribution.faculty.facultyCode}_${contribution.id}_${authorName}_${sanitizedOriginalName}`;
+            archive.append(buffer, { name: filename });
+            filesAdded++;
+          } catch (error) {
+            logger.warn(`Failed to download file for contribution ${contribution.id}: ${error}`);
+          }
+        }
+
+        logger.info(`Added ${filesAdded} files to ZIP archive for academic year ${academicYearId}`);
+        await archive.finalize();
+      } catch (error) {
+        logger.error(`Error in downloadSelectedAsZip: ${error}`);
         if (!res.headersSent) {
           res.status(500).json({
             success: false,
-            message: 'Error creating ZIP file',
-            error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+            message: 'Internal server error',
           });
         }
-        reject(err);
-      });
-
-      res.on('error', (err) => {
-        logger.error(`Response error: ${err.message}`);
-        archive.abort();
-        reject(err);
-      });
-
-      archive.pipe(res);
-
-      (async () => {
-        try {
-          let filesAdded = 0;
-          for (const contribution of contributions) {
-            const docxFile = contribution.files[0];
-            if (!docxFile?.filePath) continue;
-
-            try {
-              const buffer = await s3Service.downloadFile(docxFile.filePath);
-              const authorName = `${contribution.user.firstName || ''}_${contribution.user.lastName || ''}`.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-              const sanitizedOriginalName = docxFile.originalName?.replace(/[^a-zA-Z0-9._-]/g, '_') || 'document.docx';
-              const filename = `${contribution.faculty.facultyCode}_${contribution.id}_${authorName}_${sanitizedOriginalName}`;
-              archive.append(buffer, { name: filename });
-              filesAdded++;
-            } catch (error) {
-              logger.warn(`Failed to download file for contribution ${contribution.id}: ${error}`);
-            }
-          }
-
-          logger.info(`Added ${filesAdded} files to ZIP archive`);
-          await archive.finalize();
-          resolve(undefined);
-        } catch (error) {
-          logger.error(`Error adding files to archive: ${error}`);
-          archive.abort();
-          reject(error);
-        }
-      })();
-    });
-  });
+      }
+    })();
+  };
 }
 
 export default new ContributionController();
