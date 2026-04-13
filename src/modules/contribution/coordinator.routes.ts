@@ -20,7 +20,7 @@ router.get(
 );
 
 router.get(
-  '/exception/overdue',
+  '/overdue',
   authenticate,
   authorize(ROLES.COORDINATOR),
   requireFacultyIfRoleNeedsIt,
