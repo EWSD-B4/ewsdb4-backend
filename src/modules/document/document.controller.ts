@@ -104,7 +104,7 @@ class DocumentController {
     res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
     res.setHeader('Content-Length', buffer.length);
 
-    res.send(buffer);
+    res.end(buffer);
   });
 
   getDownloadUrlByContributionId = asyncHandler(async (req: Request, res: Response) => {
