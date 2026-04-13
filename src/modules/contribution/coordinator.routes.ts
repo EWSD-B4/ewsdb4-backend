@@ -10,6 +10,7 @@ import { selectContributionSchema, rejectContributionSchema, updateStatusSchema 
 
 const router = Router();
 
+// Specific routes must come BEFORE parameterized routes
 router.get(
   '/without-comments',
   authenticate,
@@ -26,6 +27,7 @@ router.get(
   contributionController.getOverdueContributions
 );
 
+// General list route
 router.get(
   '/',
   authenticate,
@@ -34,6 +36,7 @@ router.get(
   contributionController.listCoordinator
 );
 
+// Parameterized routes come AFTER specific routes
 router.get(
   '/:id',
   authenticate,
@@ -41,6 +44,15 @@ router.get(
   requireFacultyIfRoleNeedsIt,
   contributionController.getCoordinator
 );
+
+router.get(
+  '/:id/content',
+  authenticate,
+  authorize(ROLES.COORDINATOR),
+  requireFacultyIfRoleNeedsIt,
+  documentContentController.getForCoordinator
+);
+
 router.put(
   '/:id/status',
   authenticate,
@@ -66,14 +78,6 @@ router.post(
   requireFacultyIfRoleNeedsIt,
   validate(rejectContributionSchema),
   contributionController.rejectContribution
-);
-
-router.get(
-  '/:id/content',
-  authenticate,
-  authorize(ROLES.COORDINATOR),
-  requireFacultyIfRoleNeedsIt,
-  documentContentController.getForCoordinator
 );
 
 export default router;
