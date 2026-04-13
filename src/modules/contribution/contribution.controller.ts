@@ -615,6 +615,25 @@ class ContributionController {
       ? parseInt(req.query.academicYearId as string, 10)
       : await academicYearService.getActiveAcademicYearId();
 
+    // Check if final closure date has passed
+    const academicYear = await prisma.academicYear.findUnique({
+      where: { id: academicYearId },
+      select: { closureFinalDate: true },
+    });
+
+    if (!academicYear) {
+      throw new AppError('Academic year not found', 404, 'NOT_FOUND');
+    }
+
+    const now = new Date();
+    if (!academicYear.closureFinalDate || now < academicYear.closureFinalDate) {
+      throw new AppError(
+        'Download is only available after the final closure date',
+        403,
+        'FORBIDDEN'
+      );
+    }
+
     const where = { status: 'selected', academicYearId };
 
     const contributions = await prisma.contribution.findMany({
