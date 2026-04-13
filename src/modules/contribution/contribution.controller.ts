@@ -715,7 +715,7 @@ class ContributionController {
       throw new AppError('Faculty assignment required', 403, 'FORBIDDEN');
     }
 
-    const now = new Date();
+    // const now = new Date();
     const contributions = await prisma.contribution.findMany({
       where: {
         status: 'submitted',
