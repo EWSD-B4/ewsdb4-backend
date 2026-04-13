@@ -39,6 +39,40 @@ class DocumentContentController {
     );
   }
 
+  private async replaceS3KeysWithSignedUrls(tiptapJson: any): Promise<any> {
+    if (!tiptapJson) return tiptapJson;
+
+    if (typeof tiptapJson !== 'object') {
+      return tiptapJson;
+    }
+
+    if (tiptapJson.type === 'image' && tiptapJson.attrs?.src) {
+      const src = tiptapJson.attrs.src;
+      // Check if src is an S3 key (not already a signed URL)
+      if (src && !src.startsWith('http')) {
+        const signedUrl = await s3Service.getSignedDownloadUrl(src, 3600);
+        return {
+          ...tiptapJson,
+          attrs: {
+            ...tiptapJson.attrs,
+            src: signedUrl,
+          },
+        };
+      }
+    }
+
+    if (Array.isArray(tiptapJson.content)) {
+      return {
+        ...tiptapJson,
+        content: await Promise.all(
+          tiptapJson.content.map((child: any) => this.replaceS3KeysWithSignedUrls(child))
+        ),
+      };
+    }
+
+    return tiptapJson;
+  }
+
   private async buildContentResponse(
     contributionId: number,
     contribution: NonNullable<Awaited<ReturnType<DocumentContentController['fetchContributionContent']>>>,
@@ -47,7 +81,7 @@ class DocumentContentController {
     const documents = await Promise.all(
       contents.map(async (c) => ({
         contributionFileId: c.contributionFileId,
-        data: c.tiptapJson,
+        data: await this.replaceS3KeysWithSignedUrls(c.tiptapJson),
         uploadedImages: await this.generateSignedUrlsForImages(c.uploadedImages || []),
         extractedImages: await this.generateSignedUrlsForImages(c.extractedImages || []),
         metadata: c.metadata,
@@ -103,7 +137,7 @@ class DocumentContentController {
           contributionFileId: content.contributionFileId,
           contributionId: content.contributionId,
           title: contribution?.title ?? null,
-          content: content.tiptapJson,
+          content: await this.replaceS3KeysWithSignedUrls(content.tiptapJson),
           uploadedImages: await this.generateSignedUrlsForImages(content.uploadedImages || []),
           extractedImages: await this.generateSignedUrlsForImages(content.extractedImages || []),
           metadata: content.metadata,
