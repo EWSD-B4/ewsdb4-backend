@@ -21,11 +21,6 @@ export interface IDocumentContent extends Document {
     alt?: string;
     title?: string;
   }>;
-  extractedImages: Array<{
-    s3Key: string;
-    alt?: string;
-    title?: string;
-  }>;
   plagiarismCheck?: {
     checked: boolean;
     checkedAt: Date;
@@ -64,13 +59,6 @@ const DocumentContentSchema = new Schema<IDocumentContent>(
       required: true,
     },
     uploadedImages: [
-      {
-        s3Key: { type: String, required: true },
-        alt: { type: String },
-        title: { type: String },
-      },
-    ],
-    extractedImages: [
       {
         s3Key: { type: String, required: true },
         alt: { type: String },

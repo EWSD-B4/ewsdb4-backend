@@ -61,7 +61,6 @@ class DocumentContentService {
         totalWordCount: contents.reduce((sum, c) => sum + (c.metadata.wordCount || 0), 0),
         totalCharacterCount: contents.reduce((sum, c) => sum + (c.metadata.characterCount || 0), 0),
         totalUploadedImages: contents.reduce((sum, c) => sum + (c.uploadedImages?.length || 0), 0),
-        totalExtractedImages: contents.reduce((sum, c) => sum + (c.extractedImages?.length || 0), 0),
         documents: contents.map((c) => ({
           contributionFileId: c.contributionFileId,
           wordCount: c.metadata.wordCount,
@@ -90,7 +89,6 @@ class DocumentContentService {
         wordCount: content.metadata.wordCount,
         characterCount: content.metadata.characterCount,
         uploadedImageCount: content.uploadedImages?.length || 0,
-        extractedImageCount: content.extractedImages?.length || 0,
         processedAt: content.metadata.processedAt,
         processingDuration: content.metadata.processingDuration,
       };

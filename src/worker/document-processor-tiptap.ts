@@ -109,6 +109,9 @@ class DocumentProcessorTipTap {
 
       logger.info(`Extracted ${extractedImages.length} images from DOCX file: contributionFileId=${contributionFileId}`);
 
+      // Convert HTML to TipTap JSON structure
+      const tiptapJson = this.htmlToTipTapJson(html);
+
       // Upload extracted images to S3 and get their URLs
       // Create all image file records in a single transaction
       const imageFiles = await db.$transaction(async (tx) => {
@@ -167,10 +170,6 @@ class DocumentProcessorTipTap {
         );
       }
 
-      // Convert HTML to TipTap JSON structure with embedded images
-      let tiptapJson = this.htmlToTipTapJson(html);
-      tiptapJson = this.replaceImagePlaceholders(tiptapJson, imageMapping);
-
       // Calculate metadata
       const plainText = this.extractPlainText(tiptapJson);
       const wordCount = plainText.split(/\s+/).filter((w) => w.length > 0).length;
@@ -200,10 +199,6 @@ class DocumentProcessorTipTap {
           uploadedImages: uploadedImageFiles.map((img) => ({
             s3Key: img.filePath || '',
             alt: img.originalName,
-          })),
-          extractedImages: Array.from(imageMapping.entries()).map(([index, s3Key]) => ({
-            s3Key,
-            alt: `Extracted Image ${index + 1}`,
           })),
           metadata: {
             wordCount,
@@ -269,65 +264,45 @@ class DocumentProcessorTipTap {
       content: [],
     };
 
-    // Split by paragraphs and images to preserve image positions
-    const parts = html.split(/(<img[^>]*>)/gi);
+    // Remove images from HTML since they're stored separately in extractedImages
+    const htmlWithoutImages = html.replace(/<img[^>]*>/gi, '');
 
-    for (const part of parts) {
-      if (!part.trim()) continue;
+    // Simple parsing - split by common tags
+    const paragraphs = htmlWithoutImages.split(/<\/?p>/gi).filter((p) => p.trim());
 
-      // Check if this is an image tag
-      if (part.match(/^<img/i)) {
-        const srcMatch = part.match(/src="([^"]*)"/);
-        if (srcMatch) {
-          const src = srcMatch[1];
-          doc.content.push({
-            type: 'image',
-            attrs: {
-              src: src,
-              alt: 'Extracted Image',
-              title: 'Extracted Image',
-            },
-          });
+    const paragraphNodes = paragraphs.map((p) => {
+      const content = [];
+      
+      // Handle bold text
+      const boldRegex = /<strong>(.*?)<\/strong>/gi;
+      let lastIndex = 0;
+      let match;
+      
+      while ((match = boldRegex.exec(p)) !== null) {
+        if (match.index > lastIndex) {
+          const text = p.substring(lastIndex, match.index).replace(/<[^>]*>/g, '');
+          if (text) content.push({ type: 'text', text });
         }
-      } else {
-        // This is HTML content (paragraphs, text, etc.)
-        const paragraphs = part.split(/<\/?p>/gi).filter((p) => p.trim());
-
-        const paragraphNodes = paragraphs.map((p) => {
-          const content = [];
-          
-          // Handle bold text
-          const boldRegex = /<strong>(.*?)<\/strong>/gi;
-          let lastIndex = 0;
-          let match;
-          
-          while ((match = boldRegex.exec(p)) !== null) {
-            if (match.index > lastIndex) {
-              const text = p.substring(lastIndex, match.index).replace(/<[^>]*>/g, '');
-              if (text) content.push({ type: 'text', text });
-            }
-            content.push({
-              type: 'text',
-              marks: [{ type: 'bold' }],
-              text: match[1],
-            });
-            lastIndex = match.index + match[0].length;
-          }
-          
-          if (lastIndex < p.length) {
-            const text = p.substring(lastIndex).replace(/<[^>]*>/g, '');
-            if (text) content.push({ type: 'text', text });
-          }
-
-          return {
-            type: 'paragraph',
-            content: content.length > 0 ? content : [{ type: 'text', text: p.replace(/<[^>]*>/g, '') }],
-          };
+        content.push({
+          type: 'text',
+          marks: [{ type: 'bold' }],
+          text: match[1],
         });
-
-        doc.content.push(...paragraphNodes);
+        lastIndex = match.index + match[0].length;
       }
-    }
+      
+      if (lastIndex < p.length) {
+        const text = p.substring(lastIndex).replace(/<[^>]*>/g, '');
+        if (text) content.push({ type: 'text', text });
+      }
+
+      return {
+        type: 'paragraph',
+        content: content.length > 0 ? content : [{ type: 'text', text: p.replace(/<[^>]*>/g, '') }],
+      };
+    });
+
+    doc.content.push(...paragraphNodes);
 
     return doc;
   }
