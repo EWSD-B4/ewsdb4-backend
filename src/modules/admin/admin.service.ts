@@ -3,7 +3,7 @@ import { BadRequestError, ConflictError, NotFoundError } from '@/shared/errors/A
 import { Prisma } from '@prisma/client';
 import { ROLES } from '@/constants/roles';
 
-const rolesRequiringFaculty = new Set<string>([ROLES.STUDENT, ROLES.COORDINATOR]);
+const rolesRequiringFaculty = new Set<string>([ROLES.STUDENT, ROLES.COORDINATOR, ROLES.GUEST]);
 
 class AdminService {
   async getAllRoles() {
