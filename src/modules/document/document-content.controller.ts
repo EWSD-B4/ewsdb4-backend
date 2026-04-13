@@ -4,6 +4,7 @@ import documentContentService from './document-content.service';
 import { successResponse } from '@/utils/response';
 import { AppError } from '@/middleware/errorHandler';
 import { db as prisma } from '@/shared/database';
+import s3Service from '@/shared/storage/s3.service';
 
 class DocumentContentController {
   private async fetchContributionContent(contributionId: number) {
@@ -25,11 +26,34 @@ class DocumentContentController {
     return contribution;
   }
 
-  private buildContentResponse(
+  private async generateSignedUrlsForImages(
+    images: Array<{ s3Key: string; alt?: string; title?: string }>
+  ) {
+    return Promise.all(
+      images.map(async (image) => ({
+        url: await s3Service.getSignedDownloadUrl(image.s3Key, 3600),
+        s3Key: image.s3Key,
+        alt: image.alt,
+        title: image.title,
+      }))
+    );
+  }
+
+  private async buildContentResponse(
     contributionId: number,
     contribution: NonNullable<Awaited<ReturnType<DocumentContentController['fetchContributionContent']>>>,
     contents: Awaited<ReturnType<typeof documentContentService.getByContributionId>>
   ) {
+    const documents = await Promise.all(
+      contents.map(async (c) => ({
+        contributionFileId: c.contributionFileId,
+        data: c.tiptapJson,
+        uploadedImages: await this.generateSignedUrlsForImages(c.uploadedImages || []),
+        extractedImages: await this.generateSignedUrlsForImages(c.extractedImages || []),
+        metadata: c.metadata,
+      }))
+    );
+
     return {
       contributionId,
       title: contribution.title,
@@ -44,13 +68,7 @@ class DocumentContentController {
         facultyName: contribution.faculty.facultyName,
         facultyCode: contribution.faculty.facultyCode,
       },
-      documents: contents.map((c) => ({
-        contributionFileId: c.contributionFileId,
-        data: c.tiptapJson,
-        uploadedImages: c.uploadedImages || [],
-        extractedImages: c.extractedImages || [],
-        metadata: c.metadata,
-      })),
+      documents,
     };
   }
   /**
@@ -86,8 +104,8 @@ class DocumentContentController {
           contributionId: content.contributionId,
           title: contribution?.title ?? null,
           content: content.tiptapJson,
-          uploadedImages: content.uploadedImages || [],
-          extractedImages: content.extractedImages || [],
+          uploadedImages: await this.generateSignedUrlsForImages(content.uploadedImages || []),
+          extractedImages: await this.generateSignedUrlsForImages(content.extractedImages || []),
           metadata: content.metadata,
         },
         req.requestId || 'unknown',
@@ -114,7 +132,7 @@ class DocumentContentController {
     const contents = await documentContentService.getByContributionId(contributionId);
     res.json(
       successResponse(
-        this.buildContentResponse(contributionId, contribution, contents),
+        await this.buildContentResponse(contributionId, contribution, contents),
         req.requestId || 'unknown',
         { message: `Found ${contents.length} document(s)` }
       )
@@ -137,7 +155,7 @@ class DocumentContentController {
     const contents = await documentContentService.getByContributionId(contributionId);
     res.json(
       successResponse(
-        this.buildContentResponse(contributionId, contribution, contents),
+        await this.buildContentResponse(contributionId, contribution, contents),
         req.requestId || 'unknown',
         { message: `Found ${contents.length} document(s)` }
       )
@@ -160,7 +178,7 @@ class DocumentContentController {
     const contents = await documentContentService.getByContributionId(contributionId);
     res.json(
       successResponse(
-        this.buildContentResponse(contributionId, contribution, contents),
+        await this.buildContentResponse(contributionId, contribution, contents),
         req.requestId || 'unknown',
         { message: `Found ${contents.length} document(s)` }
       )
@@ -186,7 +204,7 @@ class DocumentContentController {
     const contents = await documentContentService.getByContributionId(contributionId);
     res.json(
       successResponse(
-        this.buildContentResponse(contributionId, contribution, contents),
+        await this.buildContentResponse(contributionId, contribution, contents),
         req.requestId || 'unknown',
         { message: `Found ${contents.length} document(s)` }
       )
