@@ -2,6 +2,7 @@ import { db } from '@/shared/database';
 import logger from '@/shared/logger';
 import { BadRequestError, NotFoundError, ForbiddenError } from '@/shared/errors/AppError';
 import { Try } from '@/shared/utils/Try';
+import { emailService } from '@/shared/email';
 import {
   CommentResponse,
   CreateCommentRequest,
@@ -69,6 +70,27 @@ class CommentService {
       });
 
       logger.info(`Comment created on contribution ${data.contributionId} by user ${userId}`);
+
+      if (isCoordinator) {
+        const student = await db.user.findUnique({
+          where: { id: contribution.userId },
+        });
+
+        if (student && student.email) {
+          const coordinatorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+          const studentName = `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.email;
+
+          await emailService.sendCommentNotificationEmail(student.email, {
+            studentName,
+            coordinatorName,
+            contributionTitle: contribution.title,
+            contributionId: contribution.id,
+            comment: data.content,
+          }).catch((error) => {
+            logger.error(`Failed to send comment notification email to ${student.email}:`, error);
+          });
+        }
+      }
 
       return this.formatComment(comment);
     }).orElseThrow('Error creating comment');
