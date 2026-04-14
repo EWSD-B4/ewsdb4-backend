@@ -398,7 +398,7 @@ class DocumentProcessorTipTap {
           `${coordinator.firstName || ''} ${coordinator.lastName || ''}`.trim() || coordinator.email;
 
         // Create a custom plagiarism email (reusing the comment notification template for now)
-        const plagiarismMessage = `⚠️ PLAGIARISM ALERT\n\nRisk Level: ${riskLevel}\nHighest Similarity: ${highestSimilarity}%\n\nThis contribution has been flagged for plagiarism review. Please review the content and take appropriate action.`;
+        const plagiarismMessage = `⚠️ PLAGIARISM ALERT\n\nFaculty: ${facultyName}\nStudent: ${studentName}\nRisk Level: ${riskLevel}\nHighest Similarity: ${highestSimilarity}%\n\nThis contribution has been flagged for plagiarism review. Please review the content and take appropriate action.`;
 
         await emailService.sendCommentNotificationEmail(coordinator.email, {
           studentName,
