@@ -44,6 +44,10 @@ class CommentService {
         throw new ForbiddenError('You can only comment on contributions from your faculty');
       }
 
+      if (isCoordinator && contribution.commentDueDate && new Date() > contribution.commentDueDate) {
+        throw new BadRequestError(`Comment deadline has passed for this contribution. Due date was ${contribution.commentDueDate.toISOString().split('T')[0]}`);
+      }
+
       const comment = await db.comment.create({
         data: {
           contributionId: data.contributionId,
@@ -283,15 +287,19 @@ class CommentService {
   }
 
   private formatComment(comment: any): CommentResponse {
+    const formattedUser = comment.user ? {
+      name: `${comment.user.firstName || ''}${comment.user.firstName && comment.user.lastName ? ' ' : ''}${comment.user.lastName || ''}`.trim() || comment.user.email,
+      role: comment.user.role?.roleName || '',
+    } : undefined;
+
     return {
       id: comment.id,
       contributionId: comment.contributionId,
-      userId: comment.userId,
       content: comment.content,
       commentedAt: comment.commentedAt ? comment.commentedAt.toISOString() : null,
       createdAt: comment.createdAt.toISOString(),
       updatedAt: comment.updatedAt.toISOString(),
-      user: comment.user,
+      user: formattedUser,
     };
   }
 }

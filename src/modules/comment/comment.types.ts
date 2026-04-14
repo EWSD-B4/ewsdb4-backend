@@ -20,20 +20,13 @@ export interface UpdateCommentRequest {
 export interface CommentResponse {
   id: number;
   contributionId: number;
-  userId: number;
   content: string;
   commentedAt: string | null;
   createdAt: string;
   updatedAt: string;
   user?: {
-    id: number;
-    firstName: string | null;
-    lastName: string | null;
-    email: string;
-    role?: {
-      roleCode: string;
-      roleName: string;
-    };
+    name: string;
+    role: string;
   };
 }
 
