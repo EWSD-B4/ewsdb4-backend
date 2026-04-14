@@ -8,6 +8,7 @@ import { Try } from '@/shared/utils/Try';
 import { DocumentContentModel } from '@/models/document-content.model';
 import { db } from '@/shared/database';
 import plagiarismService from '../services/plagiarism.service';
+import { emailService } from '@/shared/email';
 
 interface ExtractedImage {
   buffer: Buffer;
@@ -232,19 +233,28 @@ class DocumentProcessorTipTap {
       // If plagiarism detected, update contribution status to flagged
       if (plagiarismMatches.length > 0) {
         const riskLevel = plagiarismService.getRiskLevel(plagiarismMatches);
+        const highestSimilarity = (plagiarismMatches[0].similarityScore * 100).toFixed(1);
         logger.warn(
           `Plagiarism detected for contributionId=${contributionId}: ` +
           `${plagiarismMatches.length} matches, risk level: ${riskLevel}, ` +
-          `highest similarity: ${(plagiarismMatches[0].similarityScore * 100).toFixed(1)}%`
+          `highest similarity: ${highestSimilarity}%`
         );
 
         // Update contribution status to flagged_plagiarism
-        await db.contribution.update({
+        const updatedContribution = await db.contribution.update({
           where: { id: contributionId },
           data: { status: 'flagged_plagiarism' },
+          include: {
+            user: { select: { firstName: true, lastName: true, email: true } },
+            faculty: { select: { facultyName: true } },
+          },
         });
 
         logger.info(`Contribution ${contributionId} flagged for plagiarism review`);
+
+        // Notify coordinators and student of plagiarism detection
+        await this.notifyCoordinatorsOfPlagiarism(updatedContribution, riskLevel, highestSimilarity);
+        await this.notifyStudentOfPlagiarism(updatedContribution, riskLevel, highestSimilarity);
       } else {
         logger.info(`No plagiarism detected for contributionId=${contributionId}`);
       }
@@ -350,6 +360,99 @@ class DocumentProcessorTipTap {
     return '';
   }
 
+  private async notifyCoordinatorsOfPlagiarism(
+    contribution: any,
+    riskLevel: string,
+    highestSimilarity: string
+  ): Promise<void> {
+    await Try.execute(async () => {
+      const coordinators = await db.user.findMany({
+        where: {
+          facultyId: contribution.facultyId,
+          isActive: true,
+          role: {
+            roleCode: 'COORDINATOR',
+          },
+        },
+        select: {
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      });
+
+      if (coordinators.length === 0) {
+        logger.warn(
+          `No active coordinators found for faculty ${contribution.facultyId} to notify about plagiarism for contribution ${contribution.id}`
+        );
+        return;
+      }
+
+      const studentName =
+        `${contribution.user.firstName || ''} ${contribution.user.lastName || ''}`.trim() ||
+        contribution.user.email;
+      const facultyName = contribution.faculty.facultyName;
+
+      for (const coordinator of coordinators) {
+        const coordinatorName =
+          `${coordinator.firstName || ''} ${coordinator.lastName || ''}`.trim() || coordinator.email;
+
+        // Create a custom plagiarism email (reusing the comment notification template for now)
+        const plagiarismMessage = `⚠️ PLAGIARISM ALERT\n\nRisk Level: ${riskLevel}\nHighest Similarity: ${highestSimilarity}%\n\nThis contribution has been flagged for plagiarism review. Please review the content and take appropriate action.`;
+
+        await emailService.sendCommentNotificationEmail(coordinator.email, {
+          studentName,
+          coordinatorName,
+          contributionTitle: contribution.title,
+          contributionId: contribution.id,
+          comment: plagiarismMessage,
+        }).catch((error) => {
+          logger.error(`Failed to send plagiarism notification email to ${coordinator.email}:`, error);
+        });
+      }
+
+      logger.info(
+        `Plagiarism notification emails sent for contribution ${contribution.id} to ${coordinators.length} coordinator(s)`
+      );
+    }).orElseLogWarning(
+      `Failed to notify coordinators about plagiarism for contribution ${contribution.id}`
+    );
+  }
+
+  private async notifyStudentOfPlagiarism(
+    contribution: any,
+    riskLevel: string,
+    highestSimilarity: string
+  ): Promise<void> {
+    await Try.execute(async () => {
+      if (!contribution.user || !contribution.user.email) {
+        logger.warn(
+          `Cannot notify student: no email found for contribution ${contribution.id}`
+        );
+        return;
+      }
+
+      const studentName =
+        `${contribution.user.firstName || ''} ${contribution.user.lastName || ''}`.trim() ||
+        contribution.user.email;
+
+      await emailService.sendPlagiarismAlertEmail(contribution.user.email, {
+        studentName,
+        contributionTitle: contribution.title,
+        contributionId: contribution.id,
+        riskLevel,
+        highestSimilarity,
+      }).catch((error) => {
+        logger.error(`Failed to send plagiarism alert email to ${contribution.user.email}:`, error);
+      });
+
+      logger.info(
+        `Plagiarism alert email sent to student for contribution ${contribution.id}`
+      );
+    }).orElseLogWarning(
+      `Failed to notify student about plagiarism for contribution ${contribution.id}`
+    );
+  }
 
   async stop(): Promise<void> {
     await rabbitmqService.close();

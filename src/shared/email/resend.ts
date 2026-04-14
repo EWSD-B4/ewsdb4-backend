@@ -211,6 +211,70 @@ class EmailService {
     }
   }
 
+  async sendContributionResubmittedEmail(
+    to: string,
+    payload: {
+      coordinatorName: string;
+      studentName: string;
+      facultyName: string;
+      contributionTitle: string;
+      contributionId: number;
+    }
+  ): Promise<void> {
+    if (!this.resend) {
+      logger.warn(
+        `Skipping contribution resubmitted email to ${to} because email client is unavailable`
+      );
+      return;
+    }
+
+    try {
+      await this.resend.emails.send({
+        from: this.from,
+        to,
+        subject: `Contribution resubmitted: ${payload.contributionTitle}`,
+        html: this.getContributionResubmittedTemplate(payload),
+      });
+
+      logger.info(`Contribution resubmitted email sent to ${to}`);
+    } catch (error) {
+      logger.error('Failed to send contribution resubmitted email:', error);
+      throw error;
+    }
+  }
+
+  async sendPlagiarismAlertEmail(
+    to: string,
+    payload: {
+      studentName: string;
+      contributionTitle: string;
+      contributionId: number;
+      riskLevel: string;
+      highestSimilarity: string;
+    }
+  ): Promise<void> {
+    if (!this.resend) {
+      logger.warn(
+        `Skipping plagiarism alert email to ${to} because email client is unavailable`
+      );
+      return;
+    }
+
+    try {
+      await this.resend.emails.send({
+        from: this.from,
+        to,
+        subject: `⚠️ Plagiarism Alert: ${payload.contributionTitle}`,
+        html: this.getPlagiarismAlertTemplate(payload),
+      });
+
+      logger.info(`Plagiarism alert email sent to ${to}`);
+    } catch (error) {
+      logger.error('Failed to send plagiarism alert email:', error);
+      throw error;
+    }
+  }
+
   private buildWelcomeTemplate({ name }: WelcomeTemplateData): string {
     return `
       <!DOCTYPE html>
@@ -354,6 +418,124 @@ class EmailService {
 
             <p style="font-size: 12px; color: #7f8c8d;">
               This is an automated message, please do not reply to this email.
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  private getContributionResubmittedTemplate(payload: {
+    coordinatorName: string;
+    studentName: string;
+    facultyName: string;
+    contributionTitle: string;
+    contributionId: number;
+  }): string {
+    const contributionUrl = `${config.email.appUrl}/contributions/${payload.contributionId}`;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Contribution Resubmitted</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
+            <h2 style="color: #2c3e50; margin-top: 0;">Contribution Resubmitted</h2>
+
+            <p>Hello ${payload.coordinatorName},</p>
+
+            <p>A student has resubmitted a contribution for <strong>${payload.facultyName}</strong>.</p>
+
+            <div style="background-color: #fff; padding: 16px; border: 1px solid #ddd; border-radius: 4px; margin: 20px 0;">
+              <p style="margin: 0 0 8px 0;"><strong>Student:</strong> ${payload.studentName}</p>
+              <p style="margin: 0 0 8px 0;"><strong>Faculty:</strong> ${payload.facultyName}</p>
+              <p style="margin: 0;"><strong>Contribution Title:</strong> ${payload.contributionTitle}</p>
+            </div>
+
+            <p>Please review the resubmitted contribution and provide feedback within the required review period.</p>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${contributionUrl}"
+                 style="background-color: #1f6feb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Review Contribution
+              </a>
+            </div>
+
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="background-color: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 3px; word-break: break-all;">
+              ${contributionUrl}
+            </p>
+
+            <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+
+            <p style="font-size: 12px; color: #7f8c8d;">
+              This is an automated message, please do not reply to this email.
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  private getPlagiarismAlertTemplate(payload: {
+    studentName: string;
+    contributionTitle: string;
+    contributionId: number;
+    riskLevel: string;
+    highestSimilarity: string;
+  }): string {
+    const contributionUrl = `${config.email.appUrl}/contributions/${payload.contributionId}`;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Plagiarism Alert</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
+            <h2 style="color: #e74c3c; margin-top: 0;">⚠️ Plagiarism Alert</h2>
+
+            <p>Hello ${payload.studentName},</p>
+
+            <p>Your contribution <strong>${payload.contributionTitle}</strong> has been flagged for potential plagiarism during our automated review process.</p>
+
+            <div style="background-color: #fff3cd; padding: 16px; border-left: 4px solid #ffc107; border-radius: 4px; margin: 20px 0;">
+              <p style="margin: 0 0 8px 0;"><strong>Risk Level:</strong> <span style="color: #e74c3c; font-weight: bold;">${payload.riskLevel}</span></p>
+              <p style="margin: 0;"><strong>Highest Similarity:</strong> <span style="color: #e74c3c; font-weight: bold;">${payload.highestSimilarity}%</span></p>
+            </div>
+
+            <h3 style="color: #2c3e50;">What happens next?</h3>
+            <p>Your contribution has been placed under review. You have the following options:</p>
+            <ol style="color: #555;">
+              <li><strong>Resubmit your contribution:</strong> You can update your contribution with proper citations and resubmit it. The plagiarism check will run again on the updated version.</li>
+              <li><strong>Contact your coordinator:</strong> If you believe this is a false positive, reach out to your faculty coordinator to discuss.</li>
+            </ol>
+
+            <p style="color: #e74c3c; font-weight: bold;">Please address this issue as soon as possible to continue with the review process.</p>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${contributionUrl}"
+                 style="background-color: #e74c3c; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                View Your Contribution
+              </a>
+            </div>
+
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="background-color: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 3px; word-break: break-all;">
+              ${contributionUrl}
+            </p>
+
+            <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+
+            <p style="font-size: 12px; color: #7f8c8d;">
+              This is an automated message, please do not reply to this email. Contact your faculty coordinator for assistance.
             </p>
           </div>
         </body>

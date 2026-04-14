@@ -491,6 +491,79 @@ class ContributionService {
     }).orElseThrow('Error updating contribution status');
   }
 
+  private async notifyFacultyCoordinatorsOnResubmission(contributionId: number): Promise<void> {
+    await Try.execute(async () => {
+      const contribution = await prisma.contribution.findUnique({
+        where: { id: contributionId },
+        include: {
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          faculty: {
+            select: {
+              facultyName: true,
+            },
+          },
+        },
+      });
+
+      if (!contribution) {
+        logger.warn(`Skipping coordinator email: contribution ${contributionId} not found`);
+        return;
+      }
+
+      const coordinators = await prisma.user.findMany({
+        where: {
+          facultyId: contribution.facultyId,
+          isActive: true,
+          role: {
+            roleCode: 'COORDINATOR',
+          },
+        },
+        select: {
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      });
+
+      if (coordinators.length === 0) {
+        logger.warn(
+          `No active coordinators found for faculty ${contribution.facultyId} after contribution ${contributionId} resubmission`
+        );
+        return;
+      }
+
+      const studentName =
+        `${contribution.user.firstName || ''} ${contribution.user.lastName || ''}`.trim() ||
+        contribution.user.email;
+      const facultyName = contribution.faculty.facultyName;
+
+      for (const coordinator of coordinators) {
+        const coordinatorName =
+          `${coordinator.firstName || ''} ${coordinator.lastName || ''}`.trim() || coordinator.email;
+
+        await emailService.sendContributionResubmittedEmail(coordinator.email, {
+          coordinatorName,
+          studentName,
+          facultyName,
+          contributionTitle: contribution.title,
+          contributionId: contribution.id,
+        });
+      }
+
+      logger.info(
+        `Coordinator resubmission notification emails sent for contribution ${contributionId} to ${coordinators.length} coordinator(s)`
+      );
+    }).orElseLogWarning(
+      `Failed to notify faculty coordinators for contribution resubmission ${contributionId}`
+    );
+  }
+
   async selectContribution(
     contributionId: number,
     coordinatorId: number,
@@ -815,14 +888,22 @@ class ContributionService {
       ]);
 
       // Reset contribution status to submitted so it re-enters the review pipeline
+      // Calculate new comment due date (14 days from now)
+      const commentDueDate = new Date();
+      commentDueDate.setDate(commentDueDate.getDate() + 14);
+
       // Update title only if provided
-      const updateData: any = { status: 'submitted', updatedAt: new Date() };
+      const updateData: any = { status: 'submitted', commentDueDate, updatedAt: new Date() };
       if (title !== undefined && title.trim() !== '') {
         updateData.title = title.trim();
       }
-      await prisma.contribution.update({
+      const updatedContribution = await prisma.contribution.update({
         where: { id: contributionId },
         data: updateData,
+        include: {
+          user: { select: { firstName: true, lastName: true, email: true } },
+          faculty: { select: { facultyName: true } },
+        },
       });
 
       // Re-queue for processing
@@ -836,6 +917,9 @@ class ContributionService {
         fileSize: docxFile.size,
         uploadedAt: new Date().toISOString(),
       });
+
+      // Notify coordinators of resubmission
+      await this.notifyFacultyCoordinatorsOnResubmission(updatedContribution.id);
 
       logger.info(`Contribution ${contributionId} files replaced by user ${userId}, new DOCX queued for processing`);
 
