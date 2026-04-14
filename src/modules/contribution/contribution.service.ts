@@ -444,13 +444,22 @@ class ContributionService {
 
       assertValidTransition(contribution.status, newStatus);
 
+      // Calculate new comment due date if transitioning to submitted
+      const updateData: any = {
+        status: newStatus,
+        publishedAt: newStatus === 'published' ? new Date() : contribution.publishedAt,
+      };
+
+      if (newStatus === 'submitted') {
+        const commentDueDate = new Date();
+        commentDueDate.setDate(commentDueDate.getDate() + 14);
+        updateData.commentDueDate = commentDueDate;
+      }
+
       // Update status
       const updated = await prisma.contribution.update({
         where: { id: contributionId },
-        data: {
-          status: newStatus,
-          publishedAt: newStatus === 'published' ? new Date() : contribution.publishedAt,
-        },
+        data: updateData,
         include: {
           user: {
             select: {
