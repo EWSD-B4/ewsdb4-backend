@@ -734,7 +734,7 @@ class ContributionService {
     contributionId: number,
     userId: number,
     title: string | undefined,
-    docxFile: Express.Multer.File,
+    docxFile: Express.Multer.File | undefined,
     imageFiles: Express.Multer.File[] = []
   ) {
     return Try.execute(async () => {
@@ -763,12 +763,12 @@ class ContributionService {
       //   );
       // }
 
-      // DOCX mime type check
+      // DOCX mime type check (only if provided)
       const allowedDocxMimeTypes = [
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       ];
-      if (!allowedDocxMimeTypes.includes(docxFile.mimetype)) {
+      if (docxFile && !allowedDocxMimeTypes.includes(docxFile.mimetype)) {
         throw new BadRequestError('Only DOCX files are allowed');
       }
 
@@ -791,12 +791,12 @@ class ContributionService {
       const existingDocx = existingFiles.find(f => f.fileType === 'docx');
       const existingImages = existingFiles.filter(f => f.fileType === 'image');
 
-      // Delete old DOCX from S3
-      if (existingDocx?.filePath) {
+      // Delete old DOCX from S3 (only if new DOCX is provided)
+      if (docxFile && existingDocx?.filePath) {
         await s3Service.deleteFile(existingDocx.filePath);
       }
 
-      // Delete old images from S3 (both uploaded and extracted)
+      // Delete old images from S3 (only if new images are provided)
       if (imageFiles.length > 0) {
         for (const img of existingImages) {
           if (img.filePath) {
@@ -807,8 +807,8 @@ class ContributionService {
 
       // Replace DB records in a transaction
       const { newDocxRecord, newImageRecords } = await prisma.$transaction(async (tx) => {
-        // Remove old DOCX record
-        if (existingDocx) {
+        // Remove old DOCX record (only if new DOCX is provided)
+        if (docxFile && existingDocx) {
           await tx.contributionFile.delete({ where: { id: existingDocx.id } });
         }
 
@@ -819,18 +819,21 @@ class ContributionService {
           });
         }
 
-        // Create new DOCX record
-        const newDocxRecord = await tx.contributionFile.create({
-          data: {
-            contributionId,
-            fileType: 'docx',
-            originalName: docxFile.originalname,
-            storedName: docxFile.originalname,
-            fileSize: BigInt(docxFile.size),
-            isExtracted: false,
-            uploadedAt: new Date(),
-          },
-        });
+        // Create new DOCX record (only if provided)
+        let newDocxRecord = null;
+        if (docxFile) {
+          newDocxRecord = await tx.contributionFile.create({
+            data: {
+              contributionId,
+              fileType: 'docx',
+              originalName: docxFile.originalname,
+              storedName: docxFile.originalname,
+              fileSize: BigInt(docxFile.size),
+              isExtracted: false,
+              uploadedAt: new Date(),
+            },
+          });
+        }
 
         // Create new image records
         const newImageRecords = [];
@@ -852,14 +855,17 @@ class ContributionService {
         return { newDocxRecord, newImageRecords };
       });
 
-      // Upload new DOCX to S3
-      const docxS3Key = `contributions/${contributionId}/docx/${newDocxRecord.id}-${docxFile.originalname}`;
-      await s3Service.uploadFile(docxS3Key, docxFile.buffer, docxFile.mimetype, {
-        contributionId: contributionId.toString(),
-        contributionFileId: newDocxRecord.id.toString(),
-        userId: userId.toString(),
-        fileType: 'docx',
-      });
+      // Upload new DOCX to S3 (only if provided)
+      let docxS3Key: string | null = null;
+      if (docxFile && newDocxRecord) {
+        docxS3Key = `contributions/${contributionId}/docx/${newDocxRecord.id}-${docxFile.originalname}`;
+        await s3Service.uploadFile(docxS3Key, docxFile.buffer, docxFile.mimetype, {
+          contributionId: contributionId.toString(),
+          contributionFileId: newDocxRecord.id.toString(),
+          userId: userId.toString(),
+          fileType: 'docx',
+        });
+      }
 
       // Upload new images to S3
       const uploadedImages = [];
@@ -877,23 +883,33 @@ class ContributionService {
       }
 
       // Persist S3 paths
-      await prisma.$transaction([
-        prisma.contributionFile.update({
-          where: { id: newDocxRecord.id },
-          data: { filePath: docxS3Key },
-        }),
+      const pathUpdates = [];
+      if (docxS3Key && newDocxRecord) {
+        pathUpdates.push(
+          prisma.contributionFile.update({
+            where: { id: newDocxRecord.id },
+            data: { filePath: docxS3Key },
+          })
+        );
+      }
+      pathUpdates.push(
         ...imagePathUpdates.map(u =>
           prisma.contributionFile.update({ where: { id: u.id }, data: { filePath: u.filePath } })
-        ),
-      ]);
+        )
+      );
+      if (pathUpdates.length > 0) {
+        await prisma.$transaction(pathUpdates);
+      }
 
-      // Reset contribution status to submitted so it re-enters the review pipeline
-      // Calculate new comment due date (14 days from now)
-      const commentDueDate = new Date();
-      commentDueDate.setDate(commentDueDate.getDate() + 14);
-
-      // Update title only if provided
-      const updateData: any = { status: 'submitted', commentDueDate, updatedAt: new Date() };
+      // Reset contribution status to submitted so it re-enters the review pipeline (only if DOCX is updated)
+      const updateData: any = { updatedAt: new Date() };
+      if (docxFile) {
+        // Calculate new comment due date (14 days from now)
+        const commentDueDate = new Date();
+        commentDueDate.setDate(commentDueDate.getDate() + 14);
+        updateData.status = 'submitted';
+        updateData.commentDueDate = commentDueDate;
+      }
       if (title !== undefined && title.trim() !== '') {
         updateData.title = title.trim();
       }
@@ -906,32 +922,34 @@ class ContributionService {
         },
       });
 
-      // Re-queue for processing
-      await rabbitmqService.publishMessage({
-        contributionFileId: newDocxRecord.id,
-        contributionId,
-        userId,
-        fileName: docxFile.originalname,
-        s3Key: docxS3Key,
-        contentType: docxFile.mimetype,
-        fileSize: docxFile.size,
-        uploadedAt: new Date().toISOString(),
-      });
+      // Re-queue for processing (only if DOCX is updated)
+      if (docxFile && newDocxRecord && docxS3Key) {
+        await rabbitmqService.publishMessage({
+          contributionFileId: newDocxRecord.id,
+          contributionId,
+          userId,
+          fileName: docxFile.originalname,
+          s3Key: docxS3Key,
+          contentType: docxFile.mimetype,
+          fileSize: docxFile.size,
+          uploadedAt: new Date().toISOString(),
+        });
 
-      // Notify coordinators of resubmission
-      await this.notifyFacultyCoordinatorsOnResubmission(updatedContribution.id);
+        // Notify coordinators of resubmission (only if DOCX is updated)
+        await this.notifyFacultyCoordinatorsOnResubmission(updatedContribution.id);
+      }
 
-      logger.info(`Contribution ${contributionId} files replaced by user ${userId}, new DOCX queued for processing`);
+      logger.info(`Contribution ${contributionId} files updated by user ${userId}`);
 
       return {
         contributionId,
-        docxFile: {
+        docxFile: docxFile && newDocxRecord && docxS3Key ? {
           id: newDocxRecord.id,
           originalName: docxFile.originalname,
           filePath: docxS3Key,
           fileSize: docxFile.size,
           status: 'pending',
-        },
+        } : null,
         images: uploadedImages,
       };
     }).orElseThrow('Error replacing contribution files');

@@ -334,16 +334,16 @@ class ContributionController {
 
     const files = req.files as { docx?: Express.Multer.File[]; images?: Express.Multer.File[] };
     const docxFile = files?.docx?.[0];
+    const imageFiles = files?.images ?? [];
 
-    if (!docxFile) {
-      res.status(400).json({ success: false, message: 'DOCX file is required' });
+    if (!docxFile && imageFiles.length === 0) {
+      res.status(400).json({ success: false, message: 'At least one file (DOCX or images) is required' });
       return;
     }
 
     const contributionId = parseInt(String(req.params.id), 10);
     const userId = parseInt(String(req.user.id), 10);
     const title = req.body.title as string | undefined;
-    const imageFiles = files?.images ?? [];
 
     const result = await contributionService.replaceContributionFiles(
       contributionId,
@@ -355,7 +355,7 @@ class ContributionController {
 
     res.json(
       successResponse(result, req.requestId || 'unknown', {
-        message: 'Contribution files replaced and queued for processing',
+        message: 'Contribution files updated and queued for processing',
       })
     );
   });
