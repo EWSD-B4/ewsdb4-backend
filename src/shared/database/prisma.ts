@@ -1,23 +1,32 @@
 import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaMySql } from '@prisma/adapter-mysql';
+import mysql from 'mysql2/promise';
 import logger from '@/shared/logger';
 
 const prismaClientSingleton = () => {
-  // Build database URL from environment variables with connection pool settings
-  const connectionLimit = parseInt(process.env.DB_CONNECTION_LIMIT || '10');
-  const baseUrl = process.env.DATABASE_URL || 
-    `mysql://${process.env.DB_USER || 'root'}:${process.env.DB_PASSWORD || ''}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '3306'}/${process.env.DB_NAME || 'ewsd_db'}`;
+  // Build connection config from environment variables
+  const connectionConfig = {
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '3306'),
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'ewsd_db',
+    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '10'),
+    waitForConnections: true,
+    queueLimit: 0,
+    connectTimeout: 10000,
+  };
   
-  // Add connection pool parameters to URL
-  const url = new URL(baseUrl);
-  url.searchParams.set('connection_limit', connectionLimit.toString());
-  url.searchParams.set('pool_timeout', '10');
-  url.searchParams.set('connect_timeout', '10');
+  logger.info(`Connecting to database at ${connectionConfig.host}:${connectionConfig.port}`);
   
-  const databaseUrl = url.toString();
-  logger.info(`Connecting to database at ${url.hostname}:${url.port || 3306}`);
+  // Create mysql2 pool
+  const pool = mysql.createPool(connectionConfig);
+  
+  // Create Prisma adapter with mysql2 pool
+  const adapter = new PrismaMySql(pool);
   
   return new PrismaClient({
-    datasourceUrl: databaseUrl,
+    adapter,
     log: [
       {
         emit: 'event',
