@@ -3,25 +3,27 @@ import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import logger from '@/shared/logger';
 
 const prismaClientSingleton = () => {
-  const connectionConfig = {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '3306'),
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'ewsd_db',
+  // Build database URL from environment variables
+  const databaseUrl = process.env.DATABASE_URL || 
+    `mysql://${process.env.DB_USER || 'root'}:${process.env.DB_PASSWORD || ''}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '3306'}/${process.env.DB_NAME || 'ewsd_db'}`;
+  
+  // Parse the database URL to extract connection details
+  const url = new URL(databaseUrl);
+  
+  // Create Prisma adapter with pool configuration
+  const adapter = new PrismaMariaDb({
+    host: url.hostname,
+    port: parseInt(url.port || '3306'),
+    user: url.username,
+    password: url.password,
+    database: url.pathname.slice(1),
     connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '10'),
-    acquireTimeout: 30000,
-    connectTimeout: 10000,
-    idleTimeout: 60000,
-    // MySQL 8 compatibility settings
-    allowPublicKeyRetrieval: true,
-    ssl: false,
-  };
-  
-  logger.info(`Connecting to database at ${connectionConfig.host}:${connectionConfig.port}`);
-  
-  // Create Prisma adapter with mariadb driver
-  const adapter = new PrismaMariaDb(connectionConfig);
+    acquireTimeout: 10000,
+    connectTimeout: 5000,
+    idleTimeout: 30000,
+    keepAliveDelay: 10000,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : false,
+  });
   
   return new PrismaClient({
     adapter,
