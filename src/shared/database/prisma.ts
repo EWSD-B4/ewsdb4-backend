@@ -1,10 +1,8 @@
 import { PrismaClient, Prisma } from '@prisma/client';
-import { PrismaMySql } from '@prisma/adapter-mysql';
-import mysql from 'mysql2/promise';
+import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import logger from '@/shared/logger';
 
 const prismaClientSingleton = () => {
-  // Build connection config from environment variables
   const connectionConfig = {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '3306'),
@@ -12,18 +10,18 @@ const prismaClientSingleton = () => {
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'ewsd_db',
     connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '10'),
-    waitForConnections: true,
-    queueLimit: 0,
+    acquireTimeout: 30000,
     connectTimeout: 10000,
+    idleTimeout: 60000,
+    // MySQL 8 compatibility settings
+    allowPublicKeyRetrieval: true,
+    ssl: false,
   };
   
   logger.info(`Connecting to database at ${connectionConfig.host}:${connectionConfig.port}`);
   
-  // Create mysql2 pool
-  const pool = mysql.createPool(connectionConfig);
-  
-  // Create Prisma adapter with mysql2 pool
-  const adapter = new PrismaMySql(pool);
+  // Create Prisma adapter with mariadb driver
+  const adapter = new PrismaMariaDb(connectionConfig);
   
   return new PrismaClient({
     adapter,
