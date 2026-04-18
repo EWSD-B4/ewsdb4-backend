@@ -588,13 +588,13 @@ class ContributionController {
           status: { in: ['submitted', 'under_review'] },
           commentDueDate: { lt: now },
           comments: { none: {} },
-        },
+        } as any,
         include: {
           user: { select: { id: true, firstName: true, lastName: true, email: true } },
           faculty: { select: { id: true, facultyName: true, facultyCode: true } },
           academicYear: { select: { id: true, yearName: true } },
         },
-        orderBy: { commentDueDate: 'asc' },
+        orderBy: { commentDueDate: 'asc' } as any,
       }),
     ]);
 
@@ -680,7 +680,7 @@ class ContributionController {
 
         const archive = archiver('zip', { zlib: { level: 9 } });
 
-        archive.on('error', (err) => {
+        archive.on('error', (err: Error) => {
           logger.error(`Archive error: ${err.message}`);
           if (!res.headersSent) {
             res.status(500).json({

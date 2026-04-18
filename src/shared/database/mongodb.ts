@@ -23,7 +23,7 @@ class MongoDBConnection {
       this.isConnected = true;
       logger.info('MongoDB connected successfully');
 
-      mongoose.connection.on('error', (error) => {
+      mongoose.connection.on('error', (error: unknown) => {
         logger.error('MongoDB connection error:', error);
       });
 

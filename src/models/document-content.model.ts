@@ -41,7 +41,7 @@ export interface IDocumentContent extends Document {
   updatedAt: Date;
 }
 
-const DocumentContentSchema = new Schema<IDocumentContent>(
+const DocumentContentSchema = new Schema(
   {
     contributionFileId: {
       type: Number,
@@ -96,7 +96,13 @@ const DocumentContentSchema = new Schema<IDocumentContent>(
 // Indexes for efficient queries
 DocumentContentSchema.index({ contributionId: 1, createdAt: -1 });
 
-export const DocumentContentModel = mongoose.model<IDocumentContent>(
+export const DocumentContentModel = mongoose.model(
   'DocumentContent',
   DocumentContentSchema
-);
+) as {
+  findOne: (query: Record<string, unknown>) => Promise<IDocumentContent | null>;
+  find: (query: Record<string, unknown>) => any;
+  deleteOne: (query: Record<string, unknown>) => Promise<{ deletedCount?: number }>;
+  deleteMany: (query: Record<string, unknown>) => Promise<unknown>;
+  findOneAndUpdate: (...args: any[]) => Promise<IDocumentContent | null>;
+};

@@ -155,7 +155,7 @@ class EmailService {
     }
   }
 
-  private buildPasswordResetTemplate({ resetUrl }: PasswordResetTemplateData): string {
+  private buildPasswordResetTemplate(_data: PasswordResetTemplateData): string {
     return `
       <!DOCTYPE html>
       <html>
