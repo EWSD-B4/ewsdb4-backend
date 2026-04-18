@@ -332,9 +332,9 @@ class ContributionController {
       throw new AppError('Authentication required', 401, 'UNAUTHORIZED');
     }
 
-    const files = req.files as { docx?: Express.Multer.File[]; images?: Express.Multer.File[] };
+    const files = req.files as { docx?: Express.Multer.File[]; images?: Express.Multer.File[]; image?: Express.Multer.File[] };
     const docxFile = files?.docx?.[0];
-    const imageFiles = files?.images ?? [];
+    const imageFiles = files?.images ?? files?.image ?? [];
 
     if (!docxFile && imageFiles.length === 0) {
       res.status(400).json({ success: false, message: 'At least one file (DOCX or images) is required' });
