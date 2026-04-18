@@ -18,11 +18,12 @@ const prismaClientSingleton = () => {
     password: url.password,
     database: url.pathname.slice(1),
     connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '10'),
-    acquireTimeout: 10000,
-    connectTimeout: 5000,
-    idleTimeout: 30000,
-    keepAliveDelay: 10000,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : false,
+    acquireTimeout: 30000,
+    connectTimeout: 10000,
+    idleTimeout: 60000,
+    keepAliveDelay: 30000,
+    allowPublicKeyRetrieval: true,
+    ssl: false,
   });
   
   return new PrismaClient({
