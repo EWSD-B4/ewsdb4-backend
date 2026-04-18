@@ -4,6 +4,10 @@ import { AppError } from '@/middleware/errorHandler';
 import cache from '@/shared/cache/redis';
 import { hashPassword } from '@/utils/password';
 import { Try } from '@/shared/utils/Try';
+import { db } from '@/shared/database';
+import { emailService } from '@/shared/email';
+import notificationService from '@/modules/notification/notification.service';
+import { ROLES } from '@/constants/roles';
 
 class UserService {
   private cachePrefix = 'user:';
@@ -44,10 +48,60 @@ class UserService {
       throw new AppError('User with this email already exists', 409);
     }
 
-    userData.password = await hashPassword(userData.password);
-    return await Try.execute(() => userRepository.create(userData)).orElseThrow(
+    const role = await Try.execute(() =>
+      db.role.findUnique({
+        where: { id: userData.role_id },
+        select: { roleCode: true },
+      })
+    ).orElseThrow('Failed to resolve user role');
+
+    if (!role) {
+      throw new AppError('Role not found', 404);
+    }
+
+    if (role.roleCode === ROLES.GUEST && userData.faculty_id) {
+      const hasCoordinator = await notificationService.hasActiveCoordinatorForFaculty(
+        userData.faculty_id
+      );
+
+      if (!hasCoordinator) {
+        throw new AppError(
+          'Guest account cannot be created because no active Marketing Coordinator exists for the selected faculty. Please create the coordinator first.',
+          400,
+          'COORDINATOR_REQUIRED_FOR_GUEST'
+        );
+      }
+    }
+
+    const plainPassword = userData.password;
+    const createPayload = {
+      ...userData,
+      password: await hashPassword(userData.password),
+    };
+
+    const user = await Try.execute(() => userRepository.create(createPayload)).orElseThrow(
       'Failed to create user'
     );
+
+    await Try.execute(() =>
+      emailService.sendAdminCreatedAccountEmail(user.email, {
+        name: user.name || user.email,
+        email: user.email,
+        password: plainPassword,
+        role: user.role,
+        facultyName: user.faculty !== 'N/A' ? user.faculty : null,
+      })
+    ).orElseLogWarning(`Failed to send admin-created account email to ${user.email}`);
+
+    if (role.roleCode === ROLES.GUEST && userData.faculty_id) {
+      await notificationService.notifyGuestRegistered(
+        parseInt(user.id, 10),
+        userData.faculty_id,
+        'admin creation'
+      );
+    }
+
+    return user;
   }
 
   async updateUser(id: string, userData: UpdateUserDTO): Promise<User> {

@@ -2,6 +2,7 @@ import { db } from '@/shared/database';
 import logger from '@/shared/logger';
 import { NotFoundError } from '@/shared/errors/AppError';
 import { Try } from '@/shared/utils/Try';
+import { emailService } from '@/shared/email';
 import {
   NotificationResponse,
   CreateNotificationRequest,
@@ -140,6 +141,20 @@ class NotificationService {
     }).orElseThrow('Error sending email');
   }
 
+  async hasActiveCoordinatorForFaculty(facultyId: number): Promise<boolean> {
+    return Try.execute(async () => {
+      const coordinatorCount = await db.user.count({
+        where: {
+          facultyId,
+          isActive: true,
+          role: { roleCode: 'COORDINATOR' },
+        },
+      });
+
+      return coordinatorCount > 0;
+    }).orElseThrow('Error checking faculty coordinators');
+  }
+
   async notifyContributionSubmitted(contributionId: number): Promise<void> {
     return Try.execute(async () => {
       const contribution = await db.contribution.findUnique({
@@ -180,7 +195,11 @@ class NotificationService {
     }).orElseLogWarning('Error notifying contribution submission');
   }
 
-  async notifyGuestRegistered(guestId: number, facultyId: number): Promise<void> {
+  async notifyGuestRegistered(
+    guestId: number,
+    facultyId: number,
+    source: 'self-registration' | 'admin creation' = 'self-registration'
+  ): Promise<void> {
     return Try.execute(async () => {
       const guest = await db.user.findUnique({
         where: { id: guestId },
@@ -197,6 +216,11 @@ class NotificationService {
       });
 
       for (const coordinator of coordinators) {
+        const coordinatorName =
+          `${coordinator.firstName || ''} ${coordinator.lastName || ''}`.trim() || coordinator.email;
+        const guestName =
+          `${guest.firstName || ''} ${guest.lastName || ''}`.trim() || guest.email;
+
         await this.createNotification({
           userId: coordinator.id,
           type: NotificationType.GUEST_REGISTERED,
@@ -205,11 +229,12 @@ class NotificationService {
           data: { guestId },
         });
 
-        await this.sendEmail({
-          recipientId: coordinator.id,
-          type: 'guest_registered',
-          subject: `New Guest Account: ${guest.email}`,
-          body: `A new guest account has been created for ${guest.faculty?.facultyName}.\n\nEmail: ${guest.email}\nName: ${guest.firstName} ${guest.lastName}`,
+        await emailService.sendGuestRegistrationNotificationEmail(coordinator.email, {
+          coordinatorName,
+          guestName,
+          guestEmail: guest.email,
+          facultyName: guest.faculty?.facultyName || 'Unknown Faculty',
+          source,
         });
       }
 
