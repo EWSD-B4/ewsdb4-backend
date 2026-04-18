@@ -1,642 +1,755 @@
-# EWSDB4 - Professional Backend API
+# University Magazine Management System Backend
 
-A production-ready backend API built with Node.js, Express, TypeScript, MySQL, and Redis. This project follows industry best practices and is designed for scalability, maintainability, and team collaboration.
+Backend API and worker service for a secure role-based university magazine platform. This system manages student contributions for an annual university magazine, including submission workflows, faculty-scoped review, reporting, and asynchronous document processing.
 
-## 📋 Table of Contents
+## Table of Contents
 
-- [Tech Stack](#-tech-stack)
-- [Quick Start](#-quick-start)
-- [Project Structure](#-project-structure)
-- [Development](#-development)
-- [Authentication](#-authentication)
-- [API Endpoints](#-api-endpoints)
-- [Testing](#-testing)
-- [Deployment](#-deployment)
-- [Architecture](#-architecture)
-- [Contributing](#-contributing)
-- [Troubleshooting](#-troubleshooting)
+- [Quick Start](#quick-start)
+- [Overview](#overview)
+- [Supported Roles](#supported-roles)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Main Features](#main-features)
+- [Project Structure](#project-structure)
+- [Environment Variables](#environment-variables)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Running the Project](#running-the-project)
+- [Docker](#docker)
+- [Contribution Processing Flow](#contribution-processing-flow)
+- [Academic Year Logic](#academic-year-logic)
+- [Terms and Conditions Logic](#terms-and-conditions-logic)
+- [Logging and Monitoring](#logging-and-monitoring)
+- [API Modules](#api-modules)
+- [Access Control Summary](#access-control-summary)
+- [Testing and Code Quality](#testing-and-code-quality)
+- [Troubleshooting](#troubleshooting)
+- [Development Notes](#development-notes)
+- [Known Limitations / Notes](#known-limitations--notes)
+- [Audience Guide](#audience-guide)
 
-## 🚀 Tech Stack
+## Quick Start
 
-- **Runtime**: Node.js (v18+)
-- **Framework**: Express.js
-- **Language**: TypeScript
-- **Database**: MySQL 8.0
-- **Cache**: Redis 7
-- **Authentication**: JWT + bcrypt
-- **Testing**: Jest + Supertest
-- **Code Quality**: ESLint + Prettier
-- **CI/CD**: GitHub Actions
-- **Containerization**: Docker + Docker Compose
-
-## ⚡ Quick Start
-
-### Prerequisites
-
-- Node.js >= 18.0.0
-- MySQL 8.0
-- Redis 7
-
-### Installation
+If you want to run the backend locally with the current development flow:
 
 ```bash
-# 1. Clone and install
-git clone <repository-url>
-cd ewsdb4
 npm install
-
-# 2. Set up environment
-cp .env.example .env
-# Edit .env with your configuration
-
-# 3. Set up database
-mysql -u root -p < scripts/setup-db.sql
-
-# 4. Start development server
+npm run prisma:generate
+npm run prisma:push
 npm run dev
 ```
 
-The API will be available at `http://localhost:3000/api/v1`
-
-### Using Docker (Alternative)
+Run the worker in a separate terminal:
 
 ```bash
-cp .env.example .env
-docker-compose up -d
+npm run worker
 ```
 
-## 📁 Project Structure
+Before running the project, make sure the required supporting services are available:
+- MySQL
+- Redis
+- MongoDB
+- RabbitMQ
+- S3-compatible storage
 
-```
-ewsdb4/
-├── src/
-│   ├── config/                 # Configuration management
-│   ├── middleware/             # Express middleware
-│   │   ├── auth.ts            # JWT authentication
-│   │   ├── errorHandler.ts   # Global error handling
-│   │   ├── validation.ts     # Request validation
-│   │   └── asyncHandler.ts   # Async error wrapper
-│   ├── modules/               # Feature modules (domain-driven)
-│   │   ├── auth/             # Authentication module
-│   │   └── user/             # User module
-│   ├── routes/               # Route aggregation
-│   ├── shared/               # Shared utilities
-│   │   ├── database/         # MySQL connection pool
-│   │   ├── cache/           # Redis client wrapper
-│   │   └── logger/          # Winston logger
-│   ├── utils/               # Utility functions
-│   │   ├── jwt.ts          # JWT utilities
-│   │   └── password.ts     # Password hashing
-│   ├── types/              # TypeScript type definitions
-│   ├── app.ts             # Express app setup
-│   └── index.ts           # Server entry point
-├── scripts/               # Database setup scripts
-├── .github/workflows/     # CI/CD pipeline
-└── docker-compose.yml    # Docker services
-```
+Without those services, the API may start, but several workflows will be incomplete.
 
-### Path Aliases
+## Overview
 
-The project uses TypeScript path aliases for cleaner imports:
+This backend supports the University Magazine Management System, a secure web-based platform for collecting and managing student contributions.
 
-```typescript
-import config from '@/config';
-import { User } from '@/modules/user/user.types';
-import logger from '@/shared/logger';
-import { authenticate } from '@/middleware/auth';
-```
+The system supports:
+- secure authentication and authorization
+- role-based workflow control
+- student contribution submission with DOCX and image uploads
+- faculty-restricted coordinator review and comment flow
+- manager access to selected contributions and reports
+- administrator management of users, faculties, academic years, and terms
+- notification and email integration
+- asynchronous document extraction and content processing
 
-## 🛠 Development
+The backend is designed with modular services and route separation to keep business logic maintainable and easier to collaborate on in a team environment.
 
-### Available Commands
+## Supported Roles
 
-```bash
-# Development
-npm run dev              # Start dev server with hot reload
-npm run build            # Build for production
-npm start                # Start production server
+The system currently supports these roles:
 
-# Testing
-npm test                 # Run tests with coverage
-npm run test:watch       # Run tests in watch mode
+- `ADMIN`
+- `STUDENT`
+- `COORDINATOR`
+- `MANAGER`
+- `GUEST`
 
-# Code Quality
-npm run lint             # Check for linting errors
-npm run lint:fix         # Fix linting errors
-npm run format           # Format code with Prettier
-npm run typecheck        # Check TypeScript types
+## Architecture
 
-# Docker
-docker-compose up -d     # Start all services
-docker-compose down      # Stop all services
-docker-compose logs -f   # View logs
-```
+This project has two runtime components:
 
-### Makefile Commands
+### 1. API Server
+Handles:
+- HTTP requests
+- authentication and authorization
+- validation
+- business workflows
+- reporting and analytics endpoints
+- notifications and email triggers
+- database writes and reads
 
-```bash
-make help           # Show all available commands
-make install        # Install dependencies
-make dev            # Run development server
-make test           # Run tests
-make lint           # Run linter
-make docker-up      # Start with Docker
-```
+### 2. Worker Service
+Handles:
+- asynchronous DOCX processing
+- document extraction and transformation
+- background consumption of RabbitMQ messages
+- processed content storage for later retrieval
 
-## 🔐 Authentication
+### Data and Infrastructure Layers
 
-This project uses **JWT (JSON Web Tokens)** for authentication with bcrypt password hashing.
+- `MySQL + Prisma`: transactional business data
+- `MongoDB`: processed document content
+- `Redis`: auth-related state and cache support
+- `RabbitMQ`: background processing queue
+- `S3-compatible storage`: uploaded files
+- `Resend`: email delivery
 
-### Authentication Flow
+## Tech Stack
 
-```
-1. User registers/logs in
-2. Server validates credentials
-3. Server generates JWT token
-4. Client stores token (localStorage/cookies)
-5. Client sends token in Authorization header
-6. Server validates token on protected routes
-```
+- `Node.js`
+- `Express.js`
+- `TypeScript`
+- `Prisma`
+- `MySQL`
+- `MongoDB`
+- `Redis`
+- `RabbitMQ`
+- `AWS S3 / S3-compatible storage`
+- `Resend`
+- `Jest`
+- `ESLint`
+- `Prettier`
 
-### API Endpoints
-
-#### Register
-
-```bash
-POST /api/v1/auth/register
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "name": "John Doe",
-  "password": "password123"
-}
-```
-
-**Response (201 Created):**
-
-```json
-{
-  "success": true,
-  "message": "User registered successfully",
-  "data": {
-    "user": {
-      "id": "1",
-      "email": "user@example.com",
-      "name": "John Doe"
-    },
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-#### Login
-
-```bash
-POST /api/v1/auth/login
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "password": "password123"
-}
-```
-
-#### Get Current User (Protected)
-
-```bash
-GET /api/v1/auth/me
-Authorization: Bearer <your-token>
-```
-
-### Protecting Routes
-
-```typescript
-import { authenticate } from '@/middleware/auth';
-
-// Public route
-router.get('/', userController.getAllUsers);
-
-// Protected route - requires authentication
-router.get('/profile', authenticate, userController.getProfile);
-```
-
-### Accessing Authenticated User
-
-```typescript
-getProfile = asyncHandler(async (req: Request, res: Response) => {
-  // req.user is available after authenticate middleware
-  const userId = req.user!.id;
-  const user = await userService.getUserById(userId);
-
-  res.json({ success: true, data: user });
-});
-```
-
-### Security Best Practices
-
-1. **JWT Secret**: Change in production
-
-   ```bash
-   # Generate a strong secret
-   node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
-   ```
-
-2. **Token Expiration**: Configure in `.env`
-
-   ```env
-   JWT_SECRET=your-super-secret-jwt-key
-   JWT_EXPIRES_IN=7d
-   ```
-
-3. **Password Hashing**: Automatically handled with bcrypt (10 salt rounds)
-
-4. **HTTPS**: Always use HTTPS in production
-
-## 📡 API Endpoints
-
-Base URL: `http://localhost:3000/api/v1`
-
-### Health Check
-
-```bash
-GET /health
-```
+## Main Features
 
 ### Authentication
+- login/logout
+- current user lookup
+- password update
+- password reset flow
 
-| Method | Endpoint         | Description       | Auth Required |
-| ------ | ---------------- | ----------------- | ------------- |
-| POST   | `/auth/register` | Register new user | No            |
-| POST   | `/auth/login`    | Login user        | No            |
-| GET    | `/auth/me`       | Get current user  | Yes           |
+### Contribution Workflow
+- student submission of DOCX and supporting images
+- faculty-based coordinator review
+- coordinator comments, selection, and rejection
+- manager access to selected contributions
+- guest access to selected contribution browsing flows
 
-### Users
+### Administration
+- user management
+- faculty management
+- academic year management
+- terms and conditions management
 
-| Method | Endpoint     | Description    | Auth Required |
-| ------ | ------------ | -------------- | ------------- |
-| GET    | `/users`     | Get all users  | No            |
-| GET    | `/users/:id` | Get user by ID | No            |
-| POST   | `/users`     | Create user    | No            |
-| PUT    | `/users/:id` | Update user    | No            |
-| DELETE | `/users/:id` | Delete user    | No            |
+### Reporting and Analytics
+- faculty statistics
+- contributor counts
+- contribution percentages
+- no-comment and overdue exception reports
+- system usage analytics
 
-### Response Format
+### Notifications and Email
+- contribution submission notifications
+- guest registration notifications
+- comment-related notifications
+- email logging support
 
-**Success:**
+## Project Structure
 
-```json
-{
-  "success": true,
-  "message": "Operation successful",
-  "data": { ... }
-}
+```txt
+src/
+  app.ts
+  index.ts
+  config/
+  constants/
+  middleware/
+  modules/
+    academic-year/
+    admin/
+    analytics/
+    auth/
+    comment/
+    contribution/
+    document/
+    faculty/
+    history/
+    notification/
+    plagiarism/
+    report/
+    terms/
+    user/
+  routes/
+  services/
+  shared/
+    cache/
+    database/
+    email/
+    errors/
+    logger/
+    mq/
+    storage/
+    utils/
+  types/
+  utils/
+  worker/
+    index.ts
 ```
 
-**Error:**
+## Environment Variables
 
-```json
-{
-  "success": false,
-  "message": "Error description"
-}
+Create a `.env` file in the project root.
+
+### Core App
+```env
+NODE_ENV=development
+PORT=3000
+API_PREFIX=/api/v1
+LOG_LEVEL=info
+CORS_ORIGIN=*
+APP_URL=http://localhost:3000
 ```
 
-### Status Codes
+### MySQL
+```env
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=test_db
+DB_CONNECTION_LIMIT=10
+```
 
-- `200 OK`: Request succeeded
-- `201 Created`: Resource created
-- `400 Bad Request`: Invalid request data
-- `401 Unauthorized`: Authentication required
-- `404 Not Found`: Resource not found
-- `409 Conflict`: Resource conflict
-- `500 Internal Server Error`: Server error
+### Redis
+```env
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=0
+```
 
-## 🧪 Testing
+### JWT
+```env
+JWT_SECRET=your-secret-key
+JWT_EXPIRES_IN=7d
+```
 
-### Running Tests
+### S3 / Object Storage
+```env
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your-key
+AWS_SECRET_ACCESS_KEY=your-secret
+S3_BUCKET_NAME=your-bucket
+S3_DOCUMENT_PREFIX=documents/
+```
+
+### RabbitMQ
+```env
+RABBITMQ_URL=amqp://localhost:5672
+RABBITMQ_QUEUE_NAME=document-processing
+RABBITMQ_EXCHANGE_NAME=documents
+RABBITMQ_ROUTING_KEY=document.upload
+RABBITMQ_DLX_EXCHANGE_NAME=documents-dlx
+RABBITMQ_DLQ_NAME=document-processing-dlq
+RABBITMQ_DLQ_ROUTING_KEY=document.failed
+RABBITMQ_MAX_RETRIES=3
+RABBITMQ_RETRY_DELAY_MS=60000
+```
+
+### Email
+```env
+RESEND_API_KEY=your-resend-key
+EMAIL_FROM=noreply@example.com
+```
+
+## Prerequisites
+
+Before running locally, make sure these are available:
+
+- `Node.js >= 18`
+- `npm >= 9`
+- MySQL
+- Redis
+- MongoDB
+- RabbitMQ
+- S3-compatible storage or AWS S3
+- valid email credentials if email features need to be tested
+
+## Installation
+
+Install dependencies:
 
 ```bash
-# Run all tests with coverage
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run specific test file
-npm test -- user.service.test.ts
+npm install
 ```
 
-### Test Structure
-
-```typescript
-describe('UserService', () => {
-  it('should create a user', async () => {
-    const userData = { email: 'test@example.com', name: 'Test' };
-    const result = await userService.createUser(userData);
-    expect(result).toBeDefined();
-  });
-});
-```
-
-### Testing with cURL
+Generate Prisma client:
 
 ```bash
-# Register
-curl -X POST http://localhost:3000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","name":"Test User","password":"password123"}'
-
-# Login
-curl -X POST http://localhost:3000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"password123"}'
-
-# Access protected route
-TOKEN="your-token-here"
-curl http://localhost:3000/api/v1/auth/me \
-  -H "Authorization: Bearer $TOKEN"
+npm run prisma:generate
 ```
 
-## 🚢 Deployment
+Push schema to database:
+
+```bash
+npm run prisma:push
+```
+
+If you use migrations instead:
+
+```bash
+npm run prisma:migrate
+```
+
+Optional seed:
+
+```bash
+npm run prisma:seed
+```
+
+## Running the Project
+
+### Start API Server
+```bash
+npm run dev
+```
+
+### Start Worker
+Run this in a separate terminal:
+
+```bash
+npm run worker
+```
 
 ### Production Build
-
 ```bash
 npm run build
 npm start
 ```
 
-### Docker Deployment
+## Docker
+
+This project includes Docker support, but the backend does not run as a fully isolated single container by itself. Full functionality depends on supporting services such as MySQL, Redis, MongoDB, RabbitMQ, and object storage.
+
+For that reason, the recommended Docker workflow is `docker-compose`, not a single `docker run`.
+
+### Available Docker Files
+
+The repository currently includes:
+
+- `Dockerfile`
+- `Dockerfile.dev`
+- `docker-compose.yml`
+- `docker-compose.local.yml`
+- `docker-compose.dev.yml`
+- `docker-compose.staging.yml`
+- `docker-compose.prod.yml`
+
+Use the compose file that matches your environment.
+
+### Recommended: Run Full Local Stack
+
+For local development, use the local compose file if that is the environment your team uses:
 
 ```bash
-# Build the Docker image
-docker build -t ewsdb4-api .
-
-# Run the container
-docker run -p 3000:3000 --env-file .env ewsdb4-api
+docker-compose -f docker-compose.local.yml up --build
 ```
 
-### Environment Variables
-
-Key environment variables for production:
-
-```env
-NODE_ENV=production
-PORT=3000
-
-# Database
-DB_HOST=your-db-host
-DB_PORT=3306
-DB_USER=your-db-user
-DB_PASSWORD=your-db-password
-DB_NAME=your-db-name
-
-# Redis
-REDIS_HOST=your-redis-host
-REDIS_PORT=6379
-
-# JWT
-JWT_SECRET=your-super-secret-jwt-key
-JWT_EXPIRES_IN=7d
-
-# Other
-LOG_LEVEL=info
-CORS_ORIGIN=https://yourdomain.com
-```
-
-## 🏗 Architecture
-
-### Layered Architecture
-
-```
-┌─────────────────────────────────────┐
-│         HTTP Layer (Express)        │
-│  Routes → Controllers → Middleware  │
-└─────────────────────────────────────┘
-                  ↓
-┌─────────────────────────────────────┐
-│        Business Logic Layer         │
-│           Services                  │
-└─────────────────────────────────────┘
-                  ↓
-┌─────────────────────────────────────┐
-│        Data Access Layer            │
-│         Repositories                │
-└─────────────────────────────────────┘
-                  ↓
-┌─────────────────────────────────────┐
-│      Infrastructure Layer           │
-│   Database, Cache, External APIs    │
-└─────────────────────────────────────┘
-```
-
-### Design Patterns
-
-1. **Repository Pattern**: Abstracts data access
-2. **Dependency Injection**: Singleton pattern for services
-3. **Factory Pattern**: Centralized configuration
-4. **Middleware Pattern**: Cross-cutting concerns
-
-### Request Flow
-
-```
-HTTP Request
-  ↓
-Express Middleware (CORS, Helmet, Body Parser)
-  ↓
-Route Handler
-  ↓
-Validation Middleware
-  ↓
-Authentication Middleware (if protected)
-  ↓
-Controller
-  ↓
-Service (Business Logic)
-  ↓
-Repository (Data Access)
-  ↓
-Database/Cache
-  ↓
-Response
-```
-
-## 📝 Contributing
-
-### Commit Message Convention
-
-Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
-
-```
-<type>(<scope>): <subject>
-
-[optional body]
-```
-
-**Types:**
-
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style changes
-- `refactor`: Code refactoring
-- `test`: Adding or updating tests
-- `chore`: Maintenance tasks
-
-**Examples:**
-
-```
-feat(auth): add JWT authentication
-fix(user): resolve email validation bug
-docs(readme): update installation instructions
-```
-
-### Code Style
-
-- Use TypeScript strict mode
-- Always define return types for functions
-- Use async/await instead of promises
-- Handle errors properly with try-catch
-- Keep functions small and focused
-
-### Pull Request Process
-
-1. Create a feature branch from `develop`
-2. Make your changes following the code style
-3. Add tests for new functionality
-4. Ensure CI pipeline passes
-5. Request review from team members
-6. Merge after approval
-
-### Before Committing
+Or use the default compose file:
 
 ```bash
-npm run typecheck    # Type checking
-npm run lint         # Linting
-npm test             # Run tests
+docker-compose up --build
 ```
 
-## 🔧 Troubleshooting
+This approach is recommended because the backend depends on multiple services.
 
-### Path Alias Errors
-
-**Problem:** `Cannot find module '@/config'`
-
-**Solution:**
+### Stop Docker Services
 
 ```bash
-npm install
-# Restart your IDE
-# WebStorm: File → Invalidate Caches / Restart
-# VS Code: Cmd+Shift+P → "Reload Window"
+docker-compose down
 ```
 
-### MySQL Connection Error
-
-**Solution:**
-
-1. Check if MySQL is running: `mysql -u root -p`
-2. Verify credentials in `.env`
-3. Create database: `mysql -u root -p < scripts/setup-db.sql`
-
-### Redis Connection Error
-
-**Solution:**
-
-1. Check if Redis is running: `redis-cli ping`
-2. Start Redis:
-
-   ```bash
-   # macOS
-   brew services start redis
-
-   # Linux
-   sudo systemctl start redis
-
-   # Docker
-   docker run -d -p 6379:6379 redis:7-alpine
-   ```
-
-### Port Already in Use
-
-**Solution:**
+To stop and also remove volumes:
 
 ```bash
-# Change port in .env
-PORT=3000
-
-# Or kill the process
-kill -9 $(lsof -ti:3000)
+docker-compose down -v
 ```
 
-### TypeScript Build Errors
-
-**Solution:**
+### Run in Detached Mode
 
 ```bash
-# Check for type errors
+docker-compose up -d --build
+```
+
+### View Logs
+
+```bash
+docker-compose logs -f
+```
+
+For a specific service:
+
+```bash
+docker-compose logs -f <service-name>
+```
+
+### Build and Run API Container Only
+
+If MySQL, Redis, MongoDB, RabbitMQ, and object storage are already available outside Docker, you may run only the backend container.
+
+Build the image:
+
+```bash
+docker build -t university-magazine-backend .
+```
+
+Run the container:
+
+```bash
+docker run --env-file .env -p 3000:3000 university-magazine-backend
+```
+
+### Important Note
+
+Running only the backend container is not enough for full functionality unless the following services are already available and correctly configured:
+
+- MySQL
+- Redis
+- MongoDB
+- RabbitMQ
+- S3-compatible storage
+- email provider configuration if email flows are being tested
+
+Without those services:
+- the API may start
+- but upload, queue, document-processing, notification, and storage workflows may not work correctly
+
+### Development Container Option
+
+If you want a development-oriented container setup, use the dev Dockerfile and matching compose file where appropriate:
+
+```bash
+docker-compose -f docker-compose.dev.yml up --build
+```
+
+Use this only if your team has verified that the dev compose configuration matches the current environment setup.
+
+## Contribution Processing Flow
+
+The system uses an asynchronous processing pipeline.
+
+### Submission Flow
+
+1. Student submits a contribution with:
+   - DOCX file
+   - optional images
+   - metadata such as title
+2. Backend validates:
+   - role
+   - faculty scope
+   - academic year rules
+   - file types
+   - deadline rules
+3. Files are uploaded to object storage.
+4. Contribution and file records are stored in MySQL.
+5. A message is published to RabbitMQ.
+6. Worker consumes the message.
+7. Worker processes the DOCX content.
+8. Processed document content is stored in MongoDB.
+9. Coordinators are notified through notification/email flow.
+
+### Why the Worker Matters
+
+The API server and worker are both required for full functionality.
+
+Without the worker:
+- uploads may still succeed
+- but content extraction and processed article content retrieval will not complete
+
+## Academic Year Logic
+
+Academic year records control submission windows.
+
+### Important Fields
+- `startDate`
+- `endDate`
+- `closureDate`
+- `closureFinalDate`
+- `isCurrent`
+- `isActive`
+
+### Meaning
+- `closureDate`
+  stops new submissions
+- `closureFinalDate`
+  stops update-related actions after the final deadline
+
+### Current Logic
+- before `closureDate`:
+  - new submissions are allowed
+  - updates are allowed
+- after `closureDate` but before `closureFinalDate`:
+  - new submissions are blocked
+  - updates may still be allowed
+- after `closureFinalDate`:
+  - update-related actions are blocked
+
+A newly created academic year is not automatically current.  
+`isCurrent` is set separately through the dedicated current-year flow.
+
+
+
+## Logging and Monitoring
+
+The backend includes both application logging and request logging.
+
+### Logging Techniques Used
+
+- `Winston` is used as the main application logger
+- `Morgan` is used for HTTP request logging
+
+### Current Logging Behavior
+
+- in development mode, HTTP requests are logged with `morgan('dev')`
+- in non-development mode, HTTP request logs are passed into the Winston logger
+- application events such as startup, shutdown, database connections, queue events, uploads, worker processing, notifications, and errors are logged through Winston
+
+### Log Outputs
+
+Current file-based logs:
+
+- `logs/all.log`
+- `logs/error.log`
+
+### User Activity Monitoring
+
+In addition to file and console logging, the project also tracks page-view activity through middleware. This supports usage monitoring and analytics-related reporting.
+
+This means the project has:
+- operational logging
+- HTTP request logging
+- error logging
+- user activity tracking
+
+These are useful both for debugging during development and for system monitoring in deployed environments.
+
+## API Modules
+
+Base URL:
+```txt
+http://localhost:3000/api/v1
+```
+
+Main route groups:
+
+- `/auth`
+- `/users`
+- `/admin`
+- `/faculties`
+- `/academic-years`
+- `/student`
+- `/coordinator/contributions`
+- `/manager/contributions`
+- `/guest`
+- `/comments`
+- `/notifications`
+- `/analytics`
+- `/reports`
+- `/terms`
+- `/documents`
+- `/history`
+- `/plagiarism`
+
+## Access Control Summary
+
+### Public or Pre-auth Access
+Depending on route policy:
+- login
+- password reset flow
+- active terms
+- health check
+- selected guest/public read flows where explicitly allowed
+
+### Protected by Role
+- student-only contribution actions
+- coordinator faculty review flows
+- manager selected contribution/report access
+- admin maintenance and analytics access
+
+### Important Note
+Access control is enforced at:
+- route level
+- middleware level
+- business-service level
+
+This is important for preserving faculty scope and workflow restrictions.
+
+## Testing and Code Quality
+
+### Run Tests
+```bash
+npm test
+```
+
+### Watch Mode
+```bash
+npm run test:watch
+```
+
+### DOCX-specific Test
+```bash
+npm run test:docx
+```
+
+### Lint
+```bash
+npm run lint
+```
+
+### Auto-fix Lint
+```bash
+npm run lint:fix
+```
+
+### Format
+```bash
+npm run format
+```
+
+### Type Check
+```bash
 npm run typecheck
-
-# Clean and rebuild
-rm -rf dist node_modules package-lock.json
-npm install
-npm run build
 ```
 
-### IDE Not Recognizing Path Aliases
+## Troubleshooting
 
-**WebStorm:**
+### 1. API starts but uploaded documents are not processed
+Check:
+- RabbitMQ is running
+- MongoDB is running
+- the worker process is started with `npm run worker`
 
-1. Right-click `tsconfig.json` → "Set as TypeScript Configuration File"
-2. Restart IDE
+If the API is running without the worker, upload may succeed but extracted content will not be available.
 
-**VS Code:**
+### 2. Prisma client errors after schema changes
+Run:
 
-1. Cmd+Shift+P → "TypeScript: Select TypeScript Version"
-2. Choose "Use Workspace Version"
+```bash
+npm run prisma:generate
+```
 
-## 🔄 CI/CD Pipeline
+If the database schema also needs updating:
 
-The project uses GitHub Actions for continuous integration:
+```bash
+npm run prisma:push
+```
 
-### Pipeline Steps
+### 3. Database connection fails on startup
+Check:
+- MySQL is running
+- `.env` values for `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME` are correct
 
-1. Code Checkout
-2. Dependency Installation
-3. Linting
-4. Type Checking
-5. Format Check
-6. Testing with coverage
-7. Build
-8. Security Audit
+### 4. Redis connection fails
+Check:
+- Redis is running
+- `REDIS_HOST`, `REDIS_PORT`, and `REDIS_PASSWORD` are correct
 
-### Triggers
+### 5. File upload succeeds but files are not accessible later
+Check:
+- S3 or S3-compatible storage is reachable
+- bucket configuration is correct
+- AWS credentials and bucket name are valid
 
-- Push to `main` or `develop` branches
-- Pull requests to `main` or `develop` branches
+### 6. Email flow does not work
+Check:
+- `RESEND_API_KEY` is set
+- `EMAIL_FROM` is valid
+- the configured sender is allowed by the email provider
 
-## 📚 Additional Resources
+### 7. Current academic year not found
+Some contribution and reporting flows depend on an active current academic year.
 
-- [Express.js Documentation](https://expressjs.com/)
-- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-- [MySQL Documentation](https://dev.mysql.com/doc/)
-- [Redis Documentation](https://redis.io/docs/)
-- [JWT.io](https://jwt.io/)
-- [Jest Testing Framework](https://jestjs.io/)
+Check:
+- there is at least one academic year record
+- one record is marked as `isCurrent = true`
+- the current year is still active
 
-## 📄 License
+## Development Notes
 
-This project is private and intended for educational purposes as a final year group project.
+### Build Scripts
+```bash
+npm run build
+npm start
+```
 
-## 👥 Team
+### Prisma Scripts
+```bash
+npm run prisma:generate
+npm run prisma:migrate
+npm run prisma:push
+npm run prisma:studio
+npm run prisma:seed
+```
 
-[Add your team members here]
+### Development Principle
+When modifying this backend:
+- preserve current Prisma schema unless a schema change is explicitly intended
+- preserve faculty-based access rules
+- preserve role-based route protections
+- keep API and worker flow aligned
+- avoid breaking upload, queue, and content-processing flow
 
-## 📞 Support
+### External Service Dependency Note
+Several features depend on configured external services:
+- S3 for file storage
+- RabbitMQ for document processing
+- MongoDB for processed content
+- Resend for email flow
+- Redis for auth-related state
 
-For questions or issues, please contact your team members or create an issue in the repository.
+If these are unavailable, some workflows will be only partially functional.
 
----
+## Known Limitations / Notes
 
-**Happy Coding! 🚀**
+- Full contribution processing depends on both the API server and the worker service running together.
+- The system depends on multiple external services. Local development is not complete with the API alone.
+- Several workflows depend on an active current academic year.
+- Terms and conditions logic is version-based, so the active terms record should be managed carefully.
+- Guest/public access behavior depends on route policy and should be reviewed together with frontend expectations.
+- Docker support exists, but the recommended path for this project is `docker-compose`, not a single standalone backend container for full functionality.
+
+## Audience Guide
+
+### 
+Recommended order:
+1. create `.env`
+2. start MySQL, Redis, MongoDB, RabbitMQ
+3. run `npm install`
+4. run `npm run prisma:generate`
+5. run `npm run prisma:push`
+6. run `npm run dev`
+7. run `npm run worker`
+
+### 
+Focus on:
+- service boundaries in `src/modules`
+- middleware flow
+- Prisma access patterns
+- worker and queue integration
+- MongoDB content retrieval flow
+- role-based access enforcement
+
+### 
+Key evaluation points in this backend:
+- role-based workflow design
+- faculty-scoped access control
+- contribution processing pipeline
+- academic year deadline enforcement
+- terms/agreement traceability
+- separation between API and worker responsibilities
+- reporting and notification support
