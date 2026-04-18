@@ -63,7 +63,11 @@ const uploadForUpdate = multer({
       cb(new Error('Invalid file type. Only DOCX and image files (JPEG, PNG, GIF, WebP) are allowed.'));
     }
   },
-}).any();
+}).fields([
+  { name: 'docx', maxCount: 1 },
+  { name: 'images', maxCount: 5 },
+  { name: 'image', maxCount: 5 },
+]);
 
 router.post(
   '/contributions/submit',
