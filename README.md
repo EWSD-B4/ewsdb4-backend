@@ -750,6 +750,5 @@ Key evaluation points in this backend:
 - faculty-scoped access control
 - contribution processing pipeline
 - academic year deadline enforcement
-- terms/agreement traceability
 - separation between API and worker responsibilities
 - reporting and notification support
