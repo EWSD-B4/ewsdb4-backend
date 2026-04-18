@@ -54,7 +54,7 @@ class DocumentService {
 
       // For images, only count manually uploaded images (not extracted from DOCX)
       if (fileType === 'image') {
-        const manuallyUploadedImages = existingFiles.filter(f => !f.isExtracted);
+        const manuallyUploadedImages = existingFiles.filter((f: any) => !f.isExtracted);
         if (manuallyUploadedImages.length >= 5) {
           throw new BadRequestError('Contribution already has maximum 5 manually uploaded images');
         }
@@ -70,7 +70,7 @@ class DocumentService {
           fileSize: BigInt(file.size),
           isExtracted: false,
           uploadedAt: new Date(),
-        },
+        } as any,
       });
 
       const s3Key = `contributions/${contributionId}/${fileType}/${contributionFile.id}-${file.originalname}`;

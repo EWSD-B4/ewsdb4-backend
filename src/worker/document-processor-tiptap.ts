@@ -127,7 +127,7 @@ class DocumentProcessorTipTap {
               fileSize: BigInt(extractedImage.buffer.length),
               isExtracted: true,
               uploadedAt: new Date(),
-            },
+            } as any,
           });
           files.push(imageFile);
         }
@@ -183,7 +183,7 @@ class DocumentProcessorTipTap {
           contributionId,
           fileType: 'image',
           isExtracted: false, // Only get manually uploaded images
-        },
+        } as any,
         orderBy: {
           id: 'asc',
         },

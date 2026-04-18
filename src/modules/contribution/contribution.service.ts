@@ -189,7 +189,7 @@ class ContributionService {
             status: 'submitted',
             submittedAt: new Date(),
             commentDueDate,
-          },
+          } as any,
         });
 
         // Create DOCX file record
@@ -202,11 +202,11 @@ class ContributionService {
             fileSize: BigInt(docxFile.size),
             isExtracted: false,
             uploadedAt: new Date(),
-          },
+          } as any,
         });
 
         // Create image file records
-        const imageRecords: { fileSize: bigint | null; id: number; createdAt: Date; contributionId: number; fileType: string | null; originalName: string | null; storedName: string | null; filePath: string | null; isExtracted: boolean; uploadedAt: Date | null; }[] = [];
+        const imageRecords: any[] = [];
         for (const imageFile of imageFiles) {
           const imageRecord = await tx.contributionFile.create({
             data: {
@@ -217,7 +217,7 @@ class ContributionService {
               fileSize: BigInt(imageFile.size),
               isExtracted: false,
               uploadedAt: new Date(),
-            },
+            } as any,
           });
           imageRecords.push(imageRecord);
         }
@@ -459,7 +459,7 @@ class ContributionService {
       // Update status
       const updated = await prisma.contribution.update({
         where: { id: contributionId },
-        data: updateData,
+        data: updateData as any,
         include: {
           user: {
             select: {
@@ -831,7 +831,7 @@ class ContributionService {
               fileSize: BigInt(docxFile.size),
               isExtracted: false,
               uploadedAt: new Date(),
-            },
+            } as any,
           });
         }
 
@@ -847,7 +847,7 @@ class ContributionService {
               fileSize: BigInt(img.size),
               isExtracted: false,
               uploadedAt: new Date(),
-            },
+            } as any,
           });
           newImageRecords.push({ record, file: img });
         }
@@ -915,7 +915,7 @@ class ContributionService {
       }
       const updatedContribution = await prisma.contribution.update({
         where: { id: contributionId },
-        data: updateData,
+        data: updateData as any,
         include: {
           user: { select: { firstName: true, lastName: true, email: true } },
           faculty: { select: { facultyName: true } },

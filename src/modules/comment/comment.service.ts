@@ -15,7 +15,7 @@ class CommentService {
     return Try.execute(async () => {
       const contribution = await db.contribution.findUnique({
         where: { id: data.contributionId },
-      });
+      }) as any;
 
       if (!contribution) {
         throw new NotFoundError('Contribution not found');
