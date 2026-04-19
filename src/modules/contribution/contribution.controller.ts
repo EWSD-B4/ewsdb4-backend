@@ -660,7 +660,7 @@ class ContributionController {
         const contributions = await prisma.contribution.findMany({
           where,
           include: {
-            files: { where: { fileType: 'docx' }, orderBy: { createdAt: 'asc' }, take: 1 },
+            files: { orderBy: { createdAt: 'asc' } },
             user: { select: { firstName: true, lastName: true } },
             faculty: { select: { facultyCode: true } },
           },
@@ -694,18 +694,40 @@ class ContributionController {
 
         let filesAdded = 0;
         for (const contribution of contributions) {
-          const docxFile = contribution.files[0];
-          if (!docxFile?.filePath) continue;
+          const authorName = `${contribution.user.firstName || ''}_${contribution.user.lastName || ''}`.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+          const folderName = `${contribution.faculty.facultyCode}_${contribution.id}_${authorName}`;
 
-          try {
-            const buffer = await s3Service.downloadFile(docxFile.filePath);
-            const authorName = `${contribution.user.firstName || ''}_${contribution.user.lastName || ''}`.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-            const sanitizedOriginalName = docxFile.originalName?.replace(/[^a-zA-Z0-9._-]/g, '_') || 'document.docx';
-            const filename = `${contribution.faculty.facultyCode}_${contribution.id}_${authorName}_${sanitizedOriginalName}`;
-            archive.append(buffer, { name: filename });
-            filesAdded++;
-          } catch (error) {
-            logger.warn(`Failed to download file for contribution ${contribution.id}: ${error}`);
+          // Add DOCX file
+          const docxFile = contribution.files.find(f => f.fileType === 'docx');
+          if (docxFile?.filePath) {
+            try {
+              const buffer = await s3Service.downloadFile(docxFile.filePath);
+              const sanitizedOriginalName = docxFile.originalName?.replace(/[^a-zA-Z0-9._-]/g, '_') || 'document.docx';
+              archive.append(buffer, { name: `${folderName}/${sanitizedOriginalName}` });
+              filesAdded++;
+            } catch (error) {
+              logger.warn(`Failed to download DOCX file for contribution ${contribution.id}: ${error}`);
+            }
+          }
+
+          // Add image files
+          const imageFiles = contribution.files.filter(f => f.fileType === 'image');
+          if (imageFiles.length > 0) {
+            // Create images folder by adding an empty file to ensure folder exists
+            archive.append('', { name: `${folderName}/images/.gitkeep` });
+            
+            for (const imageFile of imageFiles) {
+              if (imageFile?.filePath) {
+                try {
+                  const buffer = await s3Service.downloadFile(imageFile.filePath);
+                  const sanitizedImageName = imageFile.originalName?.replace(/[^a-zA-Z0-9._-]/g, '_') || 'image';
+                  archive.append(buffer, { name: `${folderName}/images/${sanitizedImageName}` });
+                  filesAdded++;
+                } catch (error) {
+                  logger.warn(`Failed to download image file for contribution ${contribution.id}: ${error}`);
+                }
+              }
+            }
           }
         }
 
