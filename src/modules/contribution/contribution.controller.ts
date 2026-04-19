@@ -258,24 +258,38 @@ class ContributionController {
 
     const contributionId = parseInt(String(req.params.id), 10);
     const coordinatorId = parseInt(String(req.user!.id), 10);
-    const comment = req.body.comment as string | undefined;
+    let comment = req.body?.comment as string | undefined;
 
-    if (!comment) {
-      res.status(400).json({
-        success: false,
-        message: 'Comment is required when selecting a contribution',
-        ...(process.env.NODE_ENV === 'development'
-          ? { stack: new Error('Comment is required').stack }
-          : {}),
+    // If comment is not in body, fetch from database
+    if (!comment || typeof comment !== 'string' || comment.trim() === '') {
+      const existingComment = await prisma.comment.findFirst({
+        where: {
+          contributionId,
+          userId: coordinatorId,
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { content: true },
       });
-      return;
+
+      if (existingComment?.content) {
+        comment = existingComment.content;
+      } else {
+        res.status(400).json({
+          success: false,
+          message: 'Comment is required when selecting a contribution',
+          ...(process.env.NODE_ENV === 'development'
+            ? { stack: new Error('Comment is required').stack }
+            : {}),
+        });
+        return;
+      }
     }
 
     const result = await contributionService.selectContribution(
       contributionId,
       coordinatorId,
       facultyId,
-      String(comment)
+      comment.trim()
     );
 
     res.json(
@@ -300,24 +314,38 @@ class ContributionController {
 
     const contributionId = parseInt(String(req.params.id), 10);
     const coordinatorId = parseInt(String(req.user!.id), 10);
-    const comment = req.body.comment as string | undefined;
+    let comment = req.body?.comment as string | undefined;
 
-    if (!comment) {
-      res.status(400).json({
-        success: false,
-        message: 'Comment is required when rejecting a contribution',
-        ...(process.env.NODE_ENV === 'development'
-          ? { stack: new Error('Comment is required').stack }
-          : {}),
+    // If comment is not in body, fetch from database
+    if (!comment || typeof comment !== 'string' || comment.trim() === '') {
+      const existingComment = await prisma.comment.findFirst({
+        where: {
+          contributionId,
+          userId: coordinatorId,
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { content: true },
       });
-      return;
+
+      if (existingComment?.content) {
+        comment = existingComment.content;
+      } else {
+        res.status(400).json({
+          success: false,
+          message: 'Comment is required when rejecting a contribution',
+          ...(process.env.NODE_ENV === 'development'
+            ? { stack: new Error('Comment is required').stack }
+            : {}),
+        });
+        return;
+      }
     }
 
     const result = await contributionService.rejectContribution(
       contributionId,
       coordinatorId,
       facultyId,
-      String(comment)
+      comment.trim()
     );
 
     res.json(
