@@ -80,14 +80,20 @@ class CommentService {
           const coordinatorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
           const studentName = `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.email;
 
-          await emailService.sendCommentNotificationEmail(student.email, {
-            studentName,
-            coordinatorName,
-            contributionTitle: contribution.title,
-            contributionId: contribution.id,
-            comment: data.content,
-          }).catch((error) => {
-            logger.error(`Failed to send comment notification email to ${student.email}:`, error);
+          // Send email asynchronously without blocking the response
+          setImmediate(async () => {
+            try {
+              await emailService.sendCommentNotificationEmail(student.email, {
+                studentName,
+                coordinatorName,
+                contributionTitle: contribution.title,
+                contributionId: contribution.id,
+                comment: data.content,
+              });
+              logger.info(`Comment notification email sent to ${student.email}`);
+            } catch (error) {
+              logger.error(`Failed to send comment notification email to ${student.email}:`, error);
+            }
           });
         }
       }

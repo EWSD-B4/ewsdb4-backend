@@ -597,51 +597,67 @@ class ContributionService {
         );
       }
 
-      // Update status to selected and create comment in a transaction
-      const result = await prisma.$transaction(async (tx) => {
-        const updated = await tx.contribution.update({
-          where: { id: contributionId },
-          data: {
-            status: 'selected',
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
-            },
-            academicYear: {
-              select: {
-                id: true,
-                yearName: true,
-              },
-            },
-            faculty: {
-              select: {
-                id: true,
-                facultyName: true,
-                facultyCode: true,
-              },
+      // Update status to selected
+      const updated = await prisma.contribution.update({
+        where: { id: contributionId },
+        data: {
+          status: 'selected',
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
             },
           },
-        });
-
-        const createdComment = await tx.comment.create({
-          data: {
-            contributionId,
-            userId: coordinatorId,
-            content: comment,
-            commentedAt: new Date(),
+          academicYear: {
+            select: {
+              id: true,
+              yearName: true,
+            },
           },
-        });
-
-        return { contribution: updated, comment: createdComment };
+          faculty: {
+            select: {
+              id: true,
+              facultyName: true,
+              facultyCode: true,
+            },
+          },
+        },
       });
 
+      const result = { contribution: updated };
+
       logger.info(`Contribution ${contributionId} selected by coordinator ${coordinatorId}`);
+
+      // Send email to student asynchronously
+      const student = result.contribution.user;
+      const coordinator = await prisma.user.findUnique({
+        where: { id: coordinatorId },
+        select: { firstName: true, lastName: true, email: true },
+      });
+
+      if (student && student.email && coordinator) {
+        setImmediate(async () => {
+          try {
+            const coordinatorName = `${coordinator.firstName || ''} ${coordinator.lastName || ''}`.trim() || coordinator.email;
+            const studentName = `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.email;
+            
+            await emailService.sendContributionSelectedEmail(student.email, {
+              studentName,
+              coordinatorName,
+              contributionTitle: result.contribution.title,
+              contributionId: result.contribution.id,
+              comment,
+            });
+            logger.info(`Contribution selected email sent to ${student.email}`);
+          } catch (error) {
+            logger.error(`Failed to send contribution selected email to ${student.email}:`, error);
+          }
+        });
+      }
 
       return result;
     }).orElseThrow('Error selecting contribution');
@@ -680,51 +696,67 @@ class ContributionService {
         );
       }
 
-      // Update status to rejected and create comment in a transaction
-      const result = await prisma.$transaction(async (tx) => {
-        const updated = await tx.contribution.update({
-          where: { id: contributionId },
-          data: {
-            status: 'rejected',
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
-            },
-            academicYear: {
-              select: {
-                id: true,
-                yearName: true,
-              },
-            },
-            faculty: {
-              select: {
-                id: true,
-                facultyName: true,
-                facultyCode: true,
-              },
+      // Update status to rejected
+      const updated = await prisma.contribution.update({
+        where: { id: contributionId },
+        data: {
+          status: 'rejected',
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
             },
           },
-        });
-
-        const createdComment = await tx.comment.create({
-          data: {
-            contributionId,
-            userId: coordinatorId,
-            content: comment,
-            commentedAt: new Date(),
+          academicYear: {
+            select: {
+              id: true,
+              yearName: true,
+            },
           },
-        });
-
-        return { contribution: updated, comment: createdComment };
+          faculty: {
+            select: {
+              id: true,
+              facultyName: true,
+              facultyCode: true,
+            },
+          },
+        },
       });
 
+      const result = { contribution: updated };
+
       logger.info(`Contribution ${contributionId} rejected by coordinator ${coordinatorId}`);
+
+      // Send email to student asynchronously
+      const student = result.contribution.user;
+      const coordinator = await prisma.user.findUnique({
+        where: { id: coordinatorId },
+        select: { firstName: true, lastName: true, email: true },
+      });
+
+      if (student && student.email && coordinator) {
+        setImmediate(async () => {
+          try {
+            const coordinatorName = `${coordinator.firstName || ''} ${coordinator.lastName || ''}`.trim() || coordinator.email;
+            const studentName = `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.email;
+            
+            await emailService.sendContributionRejectedEmail(student.email, {
+              studentName,
+              coordinatorName,
+              contributionTitle: result.contribution.title,
+              contributionId: result.contribution.id,
+              comment,
+            });
+            logger.info(`Contribution rejected email sent to ${student.email}`);
+          } catch (error) {
+            logger.error(`Failed to send contribution rejected email to ${student.email}:`, error);
+          }
+        });
+      }
 
       return result;
     }).orElseThrow('Error rejecting contribution');
