@@ -4,6 +4,12 @@ import analyticsService from './analytics.service';
 import { successResponse } from '@/utils/response';
 
 class AnalyticsController {
+  private resolvePeriodFilter(rawPeriod: unknown) {
+    const value = String(rawPeriod || 'all').toLowerCase();
+    const allowed = ['all', 'this_week', 'this_month', 'this_semester', 'last_semester'];
+    return allowed.includes(value) ? (value as 'all' | 'this_week' | 'this_month' | 'this_semester' | 'last_semester') : 'all';
+  }
+
   /**
    * Get most viewed pages
    * GET /api/v1/analytics/most-viewed-pages
@@ -25,7 +31,11 @@ class AnalyticsController {
    */
   getMostActiveUsers = asyncHandler(async (req: Request, res: Response) => {
     const limit = parseInt(String(req.query.limit || '10'), 10);
-    const users = await analyticsService.getMostActiveUsers(limit);
+    const academicYearId = req.query.academicYearId
+      ? parseInt(String(req.query.academicYearId), 10)
+      : undefined;
+    const period = this.resolvePeriodFilter(req.query.period);
+    const users = await analyticsService.getMostActiveUsers(limit, period, academicYearId);
 
     res.json(
       successResponse(users, req.requestId || 'unknown', {
@@ -56,8 +66,12 @@ class AnalyticsController {
     const academicYearId = req.query.academicYearId
       ? parseInt(String(req.query.academicYearId), 10)
       : undefined;
+    const period = this.resolvePeriodFilter(req.query.period);
 
-    const distribution = await analyticsService.getFacultyContributionDistribution(academicYearId);
+    const distribution = await analyticsService.getFacultyContributionDistribution(
+      academicYearId,
+      period
+    );
 
     res.json(
       successResponse(distribution, req.requestId || 'unknown', {
@@ -85,12 +99,16 @@ class AnalyticsController {
    * GET /api/v1/analytics/dashboard
    */
   getDashboard = asyncHandler(async (req: Request, res: Response) => {
+    const academicYearId = req.query.academicYearId
+      ? parseInt(String(req.query.academicYearId), 10)
+      : undefined;
+    const period = this.resolvePeriodFilter(req.query.period);
     const [mostViewedPages, mostActiveUsers, browserUsage, facultyDistribution, systemStats] =
       await Promise.all([
         analyticsService.getMostViewedPages(5),
-        analyticsService.getMostActiveUsers(5),
+        analyticsService.getMostActiveUsers(5, period, academicYearId),
         analyticsService.getBrowserUsage(),
-        analyticsService.getFacultyContributionDistribution(),
+        analyticsService.getFacultyContributionDistribution(academicYearId, period),
         analyticsService.getSystemStats(),
       ]);
 

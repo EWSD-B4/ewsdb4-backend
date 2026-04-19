@@ -8,7 +8,7 @@ const router = Router();
 
 // All analytics routes require authentication and admin role
 router.use(authenticate);
-router.use(authorize(ROLES.ADMIN));
+router.use(authorize(ROLES.ADMIN, ROLES.MANAGER, ROLES.COORDINATOR));
 
 // Dashboard - all metrics in one call
 router.get('/dashboard', analyticsController.getDashboard);

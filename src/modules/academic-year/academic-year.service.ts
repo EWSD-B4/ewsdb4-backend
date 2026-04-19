@@ -9,6 +9,26 @@ import {
 } from './academic-year.types';
 
 class AcademicYearService {
+  private validateAcademicYearDates(data: {
+    startDate?: string | Date | null;
+    endDate?: string | Date | null;
+    closureDate?: string | Date | null;
+    closureFinalDate?: string | Date | null;
+  }): void {
+    const startDate = data.startDate ? new Date(data.startDate) : null;
+    const endDate = data.endDate ? new Date(data.endDate) : null;
+    const closureDate = data.closureDate ? new Date(data.closureDate) : null;
+    const closureFinalDate = data.closureFinalDate ? new Date(data.closureFinalDate) : null;
+
+    if (startDate && endDate && endDate <= startDate) {
+      throw new BadRequestError('End date must be after start date');
+    }
+
+    if (closureDate && closureFinalDate && closureFinalDate <= closureDate) {
+      throw new BadRequestError('Final closure date must be after closure date');
+    }
+  }
+
   async createAcademicYear(data: CreateAcademicYearRequest): Promise<AcademicYearResponse> {
     return Try.execute(async () => {
       const existingYear = await db.academicYear.findUnique({
@@ -19,14 +39,7 @@ class AcademicYearService {
         throw new BadRequestError('Academic year with this name already exists');
       }
 
-      if (data.closureDate && data.closureFinalDate) {
-        const closureDate = new Date(data.closureDate);
-        const closureFinalDate = new Date(data.closureFinalDate);
-
-        if (closureFinalDate <= closureDate) {
-          throw new BadRequestError('Final closure date must be after closure date');
-        }
-      }
+      this.validateAcademicYearDates(data);
 
       const academicYear = await db.academicYear.create({
         data: {
@@ -128,6 +141,17 @@ class AcademicYearService {
           data: { isCurrent: false },
         });
       }
+
+      this.validateAcademicYearDates({
+        startDate: data.startDate ?? existingYear.startDate,
+        endDate: data.endDate ?? existingYear.endDate,
+        closureDate:
+          data.closureDate !== undefined ? data.closureDate : existingYear.closureDate,
+        closureFinalDate:
+          data.closureFinalDate !== undefined
+            ? data.closureFinalDate
+            : existingYear.closureFinalDate,
+      });
 
       const updateData: any = {};
 

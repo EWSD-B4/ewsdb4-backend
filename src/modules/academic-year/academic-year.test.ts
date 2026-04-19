@@ -1,37 +1,67 @@
 import request from 'supertest';
 import app from '@/app';
 import { db } from '@/shared/database';
+import { generateToken } from '@/utils/jwt';
+import cache from '@/shared/cache/redis';
 
 describe('Academic Year API', () => {
   let adminToken: string;
   let studentToken: string;
   let academicYearId: number;
+  let adminUserId: number;
+  let studentUserId: number;
 
   beforeAll(async () => {
-    const adminLogin = await request(app).post('/api/v1/auth/login').send({
-      email: 'admin@ewsd.edu',
-      password: 'Admin@123',
+    const adminRole = await db.role.findFirst({ where: { roleCode: 'ADMIN' } });
+    const studentRole = await db.role.findFirst({ where: { roleCode: 'STUDENT' } });
+    const faculty = await db.faculty.findFirst({ where: { isActive: true } });
+
+    const adminUser = await db.user.create({
+      data: {
+        email: 'academic-admin@test.edu',
+        passwordHash: '$2b$10$test',
+        firstName: 'Academic',
+        lastName: 'Admin',
+        roleId: adminRole!.id,
+      },
     });
-    adminToken = adminLogin.body.data.token;
-    await db.user.create({
+    adminUserId = adminUser.id;
+
+    const studentUser = await db.user.create({
       data: {
         email: 'student@test.edu',
         passwordHash: '$2b$10$test',
         firstName: 'Test',
         lastName: 'Student',
-        roleId: (await db.role.findFirst({ where: { roleCode: 'STUDENT' } }))!.id,
-        facultyId: (await db.faculty.findFirst())!.id,
+        roleId: studentRole!.id,
+        facultyId: faculty!.id,
       },
     });
-    const studentLogin = await request(app).post('/api/v1/auth/login').send({
-      email: 'student@test.edu',
-      password: 'Student@123',
+    studentUserId = studentUser.id;
+
+    adminToken = generateToken({
+      userId: String(adminUser.id),
+      email: adminUser.email,
+      role: 'ADMIN',
+      facultyId: faculty?.id ?? 1,
     });
-    studentToken = studentLogin.body.data?.token || '';
+    studentToken = generateToken({
+      userId: String(studentUser.id),
+      email: studentUser.email,
+      role: 'STUDENT',
+      facultyId: faculty!.id,
+    });
+
+    await cache.set(`auth:state:user:${adminUser.id}`, 'logged_in');
+    await cache.set(`auth:state:user:${studentUser.id}`, 'logged_in');
   });
 
   afterAll(async () => {
-    await db.user.deleteMany({ where: { email: 'student@test.edu' } });
+    await db.user.deleteMany({
+      where: { email: { in: ['student@test.edu', 'academic-admin@test.edu'] } },
+    });
+    await cache.del(`auth:state:user:${adminUserId}`);
+    await cache.del(`auth:state:user:${studentUserId}`);
     if (academicYearId) {
       await db.academicYear.deleteMany({ where: { id: academicYearId } });
     }

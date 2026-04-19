@@ -181,7 +181,9 @@ class AuthService {
       3600
     );
 
-    await emailService.sendPasswordResetEmail(user.email, resetToken);
+    await Try.execute(() => emailService.sendPasswordResetEmail(user.email, resetToken)).orElseLogWarning(
+      `Failed to send password reset email to ${user.email}`
+    );
   }
 
   async verifyResetToken(token: string): Promise<{ valid: boolean; email?: string }> {

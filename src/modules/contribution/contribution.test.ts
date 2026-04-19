@@ -228,7 +228,7 @@ describe('Contribution API', () => {
     it('should have contribution already submitted from creation', async () => {
       const contribution = await db.contribution.findUnique({
         where: { id: contributionId },
-      });
+      }) as any;
 
       expect(contribution).toBeTruthy();
       expect(contribution!.status).toBe('submitted');
