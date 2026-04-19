@@ -643,6 +643,33 @@ class ContributionService {
 
       logger.info(`Contribution ${contributionId} selected by coordinator ${coordinatorId}`);
 
+      // Send email to student asynchronously
+      const student = result.contribution.user;
+      const coordinator = await prisma.user.findUnique({
+        where: { id: coordinatorId },
+        select: { firstName: true, lastName: true, email: true },
+      });
+
+      if (student && student.email && coordinator) {
+        setImmediate(async () => {
+          try {
+            const coordinatorName = `${coordinator.firstName || ''} ${coordinator.lastName || ''}`.trim() || coordinator.email;
+            const studentName = `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.email;
+            
+            await emailService.sendContributionSelectedEmail(student.email, {
+              studentName,
+              coordinatorName,
+              contributionTitle: result.contribution.title,
+              contributionId: result.contribution.id,
+              comment,
+            });
+            logger.info(`Contribution selected email sent to ${student.email}`);
+          } catch (error) {
+            logger.error(`Failed to send contribution selected email to ${student.email}:`, error);
+          }
+        });
+      }
+
       return result;
     }).orElseThrow('Error selecting contribution');
   }
@@ -725,6 +752,33 @@ class ContributionService {
       });
 
       logger.info(`Contribution ${contributionId} rejected by coordinator ${coordinatorId}`);
+
+      // Send email to student asynchronously
+      const student = result.contribution.user;
+      const coordinator = await prisma.user.findUnique({
+        where: { id: coordinatorId },
+        select: { firstName: true, lastName: true, email: true },
+      });
+
+      if (student && student.email && coordinator) {
+        setImmediate(async () => {
+          try {
+            const coordinatorName = `${coordinator.firstName || ''} ${coordinator.lastName || ''}`.trim() || coordinator.email;
+            const studentName = `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.email;
+            
+            await emailService.sendContributionRejectedEmail(student.email, {
+              studentName,
+              coordinatorName,
+              contributionTitle: result.contribution.title,
+              contributionId: result.contribution.id,
+              comment,
+            });
+            logger.info(`Contribution rejected email sent to ${student.email}`);
+          } catch (error) {
+            logger.error(`Failed to send contribution rejected email to ${student.email}:`, error);
+          }
+        });
+      }
 
       return result;
     }).orElseThrow('Error rejecting contribution');

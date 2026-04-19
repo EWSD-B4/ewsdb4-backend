@@ -700,6 +700,159 @@ class EmailService {
       </html>
     `;
   }
+
+  async sendContributionSelectedEmail(
+    to: string,
+    payload: {
+      studentName: string;
+      coordinatorName: string;
+      contributionTitle: string;
+      contributionId: number;
+      comment: string;
+    }
+  ): Promise<void> {
+    if (!this.resend) {
+      logger.warn(
+        `Skipping contribution selected email to ${to} because email client is unavailable`
+      );
+      return;
+    }
+
+    try {
+      await this.resend.emails.send({
+        from: this.from,
+        to,
+        subject: `Your contribution has been selected: ${payload.contributionTitle}`,
+        html: this.getContributionSelectedTemplate(payload),
+      });
+
+      logger.info(`Contribution selected email sent to ${to}`);
+    } catch (error) {
+      logger.error('Failed to send contribution selected email:', error);
+      throw error;
+    }
+  }
+
+  async sendContributionRejectedEmail(
+    to: string,
+    payload: {
+      studentName: string;
+      coordinatorName: string;
+      contributionTitle: string;
+      contributionId: number;
+      comment: string;
+    }
+  ): Promise<void> {
+    if (!this.resend) {
+      logger.warn(
+        `Skipping contribution rejected email to ${to} because email client is unavailable`
+      );
+      return;
+    }
+
+    try {
+      await this.resend.emails.send({
+        from: this.from,
+        to,
+        subject: `Your contribution needs revision: ${payload.contributionTitle}`,
+        html: this.getContributionRejectedTemplate(payload),
+      });
+
+      logger.info(`Contribution rejected email sent to ${to}`);
+    } catch (error) {
+      logger.error('Failed to send contribution rejected email:', error);
+      throw error;
+    }
+  }
+
+  private getContributionSelectedTemplate(payload: {
+    studentName: string;
+    coordinatorName: string;
+    contributionTitle: string;
+    contributionId: number;
+    comment: string;
+  }): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Contribution Selected</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
+            <h2 style="color: #27ae60; margin-top: 0;">✓ Contribution Selected</h2>
+
+            <p>Hello ${payload.studentName},</p>
+
+            <p>Great news! Your contribution <strong>${payload.contributionTitle}</strong> has been selected by <strong>${payload.coordinatorName}</strong>.</p>
+
+            <div style="background-color: #d4edda; padding: 16px; border-left: 4px solid #27ae60; border-radius: 4px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #27ae60;">Coordinator's Feedback:</h3>
+              <p style="margin: 0; color: #155724;">${payload.comment}</p>
+            </div>
+
+            <p>Your contribution will now proceed to the next stage of the review process. Thank you for your excellent work!</p>
+
+            <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+
+            <p style="font-size: 12px; color: #7f8c8d;">
+              This is an automated message, please do not reply to this email. Contact your faculty coordinator for assistance.
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  private getContributionRejectedTemplate(payload: {
+    studentName: string;
+    coordinatorName: string;
+    contributionTitle: string;
+    contributionId: number;
+    comment: string;
+  }): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Contribution Needs Revision</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
+            <h2 style="color: #e67e22; margin-top: 0;">📝 Contribution Needs Revision</h2>
+
+            <p>Hello ${payload.studentName},</p>
+
+            <p>Your contribution <strong>${payload.contributionTitle}</strong> has been reviewed by <strong>${payload.coordinatorName}</strong> and requires revision before it can be accepted.</p>
+
+            <div style="background-color: #fff3cd; padding: 16px; border-left: 4px solid #ffc107; border-radius: 4px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #856404;">Coordinator's Feedback:</h3>
+              <p style="margin: 0; color: #856404;">${payload.comment}</p>
+            </div>
+
+            <p><strong>What you can do:</strong></p>
+            <ul style="color: #555;">
+              <li>Review the feedback provided above</li>
+              <li>Make the necessary revisions to your contribution</li>
+              <li>Resubmit your updated contribution for review</li>
+            </ul>
+
+            <p>We look forward to reviewing your revised contribution!</p>
+
+            <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+
+            <p style="font-size: 12px; color: #7f8c8d;">
+              This is an automated message, please do not reply to this email. Contact your faculty coordinator for assistance.
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
 }
 
 export default new EmailService();
