@@ -6,7 +6,7 @@ import { validate } from '@/middleware/validation';
 import contributionController from './contribution.controller';
 import documentContentController from '@/modules/document/document-content.controller';
 import { ROLES } from '@/constants/roles';
-import { selectContributionSchema, rejectContributionSchema, updateStatusSchema } from './contribution.validation';
+import { updateStatusSchema } from './contribution.validation';
 
 const router = Router();
 
@@ -67,7 +67,6 @@ router.post(
   authenticate,
   authorize(ROLES.COORDINATOR),
   requireFacultyIfRoleNeedsIt,
-  validate(selectContributionSchema),
   contributionController.selectContribution
 );
 
@@ -76,7 +75,6 @@ router.post(
   authenticate,
   authorize(ROLES.COORDINATOR),
   requireFacultyIfRoleNeedsIt,
-  validate(rejectContributionSchema),
   contributionController.rejectContribution
 );
 
