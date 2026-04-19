@@ -748,6 +748,15 @@ class ContributionService {
         throw new NotFoundError('Contribution not found or you do not have permission to update it');
       }
 
+      // Check final closure date - no updates allowed after this date
+      const now = new Date();
+      if (contribution.academicYear.closureFinalDate && now > contribution.academicYear.closureFinalDate) {
+        throw new BadRequestError(
+          `Updates are no longer allowed for ${contribution.academicYear.yearName}. ` +
+          `Final closure date was ${contribution.academicYear.closureFinalDate.toISOString().split('T')[0]}.`
+        );
+      }
+
       // Require at least one coordinator comment before resubmission
       // const coordinatorComment = await prisma.comment.findFirst({
       //   where: {
