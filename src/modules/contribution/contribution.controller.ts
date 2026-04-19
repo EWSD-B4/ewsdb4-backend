@@ -260,8 +260,8 @@ class ContributionController {
     const coordinatorId = parseInt(String(req.user!.id), 10);
     let comment = req.body?.comment as string | undefined;
 
-    logger.info('contributionId', contributionId);
-    logger.info('coordinatorId:', coordinatorId);
+    logger.info(`contributionId: ${contributionId}`);
+    logger.info(`coordinatorId: ${coordinatorId}`);
 
     // If comment is not in body, fetch from database
     if (!comment || typeof comment !== 'string' || comment.trim() === '') {
@@ -274,7 +274,7 @@ class ContributionController {
         select: { content: true },
       });
 
-      logger.info('Existing comment:', existingComment);
+      logger.info(`Existing comment: ${JSON.stringify(existingComment)}`);
 
       if (existingComment?.content) {
         comment = existingComment.content;
