@@ -332,18 +332,18 @@ class ContributionController {
       throw new AppError('Authentication required', 401, 'UNAUTHORIZED');
     }
 
-    const files = req.files as { docx?: Express.Multer.File[]; images?: Express.Multer.File[] };
+    const files = req.files as { docx?: Express.Multer.File[]; images?: Express.Multer.File[]; image?: Express.Multer.File[] };
     const docxFile = files?.docx?.[0];
-    const imageFiles = files?.images ?? [];
+    const imageFiles = [...(files?.images ?? []), ...(files?.image ?? [])];
+    const title = req.body.title as string | undefined;
 
-    if (!docxFile && imageFiles.length === 0) {
-      res.status(400).json({ success: false, message: 'At least one file (DOCX or images) is required' });
+    if (!docxFile && imageFiles.length === 0 && !title) {
+      res.status(400).json({ success: false, message: 'At least one file (DOCX or images) or title is required' });
       return;
     }
 
     const contributionId = parseInt(String(req.params.id), 10);
     const userId = parseInt(String(req.user.id), 10);
-    const title = req.body.title as string | undefined;
 
     const result = await contributionService.replaceContributionFiles(
       contributionId,
@@ -355,7 +355,7 @@ class ContributionController {
 
     res.json(
       successResponse(result, req.requestId || 'unknown', {
-        message: 'Contribution files updated and queued for processing',
+        message: 'Contribution updated successfully',
       })
     );
   });

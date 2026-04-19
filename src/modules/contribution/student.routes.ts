@@ -37,6 +37,38 @@ const upload = multer({
   },
 });
 
+const uploadForUpdate = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024,
+  },
+  fileFilter: (_req, file, cb) => {
+    const docxMimeTypes = [
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+
+    const imageMimeTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+    ];
+
+    const allAllowedTypes = [...docxMimeTypes, ...imageMimeTypes];
+
+    if (allAllowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only DOCX and image files (JPEG, PNG, GIF, WebP) are allowed.'));
+    }
+  },
+}).fields([
+  { name: 'docx', maxCount: 1 },
+  { name: 'images', maxCount: 5 },
+  { name: 'image', maxCount: 5 },
+]);
+
 router.post(
   '/contributions/submit',
   authenticate,
@@ -62,10 +94,7 @@ router.put(
   authenticate,
   authorize(ROLES.STUDENT),
   requireFacultyIfRoleNeedsIt,
-  upload.fields([
-    { name: 'docx', maxCount: 1 },
-    { name: 'images', maxCount: 5 },
-  ]),
+  uploadForUpdate,
   contributionController.replaceContributionFiles
 );
 
