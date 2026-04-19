@@ -597,49 +597,38 @@ class ContributionService {
         );
       }
 
-      // Update status to selected and create comment in a transaction
-      const result = await prisma.$transaction(async (tx) => {
-        const updated = await tx.contribution.update({
-          where: { id: contributionId },
-          data: {
-            status: 'selected',
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
-            },
-            academicYear: {
-              select: {
-                id: true,
-                yearName: true,
-              },
-            },
-            faculty: {
-              select: {
-                id: true,
-                facultyName: true,
-                facultyCode: true,
-              },
+      // Update status to selected
+      const updated = await prisma.contribution.update({
+        where: { id: contributionId },
+        data: {
+          status: 'selected',
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
             },
           },
-        });
-
-        const createdComment = await tx.comment.create({
-          data: {
-            contributionId,
-            userId: coordinatorId,
-            content: comment,
-            commentedAt: new Date(),
+          academicYear: {
+            select: {
+              id: true,
+              yearName: true,
+            },
           },
-        });
-
-        return { contribution: updated, comment: createdComment };
+          faculty: {
+            select: {
+              id: true,
+              facultyName: true,
+              facultyCode: true,
+            },
+          },
+        },
       });
+
+      const result = { contribution: updated };
 
       logger.info(`Contribution ${contributionId} selected by coordinator ${coordinatorId}`);
 
@@ -707,49 +696,38 @@ class ContributionService {
         );
       }
 
-      // Update status to rejected and create comment in a transaction
-      const result = await prisma.$transaction(async (tx) => {
-        const updated = await tx.contribution.update({
-          where: { id: contributionId },
-          data: {
-            status: 'rejected',
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
-            },
-            academicYear: {
-              select: {
-                id: true,
-                yearName: true,
-              },
-            },
-            faculty: {
-              select: {
-                id: true,
-                facultyName: true,
-                facultyCode: true,
-              },
+      // Update status to rejected
+      const updated = await prisma.contribution.update({
+        where: { id: contributionId },
+        data: {
+          status: 'rejected',
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
             },
           },
-        });
-
-        const createdComment = await tx.comment.create({
-          data: {
-            contributionId,
-            userId: coordinatorId,
-            content: comment,
-            commentedAt: new Date(),
+          academicYear: {
+            select: {
+              id: true,
+              yearName: true,
+            },
           },
-        });
-
-        return { contribution: updated, comment: createdComment };
+          faculty: {
+            select: {
+              id: true,
+              facultyName: true,
+              facultyCode: true,
+            },
+          },
+        },
       });
+
+      const result = { contribution: updated };
 
       logger.info(`Contribution ${contributionId} rejected by coordinator ${coordinatorId}`);
 
