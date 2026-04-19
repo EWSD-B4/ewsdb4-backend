@@ -260,6 +260,9 @@ class ContributionController {
     const coordinatorId = parseInt(String(req.user!.id), 10);
     let comment = req.body?.comment as string | undefined;
 
+    logger.info('contributionId', contributionId);
+    logger.info('coordinatorId:', coordinatorId);
+
     // If comment is not in body, fetch from database
     if (!comment || typeof comment !== 'string' || comment.trim() === '') {
       const existingComment = await prisma.comment.findFirst({
@@ -270,6 +273,8 @@ class ContributionController {
         orderBy: { createdAt: 'desc' },
         select: { content: true },
       });
+
+      logger.info('Existing comment:', existingComment);
 
       if (existingComment?.content) {
         comment = existingComment.content;
