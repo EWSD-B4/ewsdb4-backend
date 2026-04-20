@@ -10,6 +10,70 @@ import academicYearService from '@/modules/academic-year/academic-year.service';
 import logger from '@/shared/logger';
 
 class ContributionController {
+  private async resolveContributionPeriodRange(
+    filterBy: string,
+    academicYearId: number
+  ): Promise<{ gte?: Date; lt?: Date }> {
+    const normalized = filterBy.toLowerCase();
+    const now = new Date();
+
+    if (normalized === 'this_week') {
+      const start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - start.getDay());
+      const end = new Date(start);
+      end.setDate(end.getDate() + 7);
+      return { gte: start, lt: end };
+    }
+
+    if (normalized === 'this_month') {
+      return {
+        gte: new Date(now.getFullYear(), now.getMonth(), 1),
+        lt: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+      };
+    }
+
+    const academicYear = await prisma.academicYear.findUnique({
+      where: { id: academicYearId },
+      select: { id: true, startDate: true, endDate: true },
+    });
+
+    if (!academicYear) {
+      throw new AppError('Academic year not found', 404, 'NOT_FOUND');
+    }
+
+    const start = new Date(academicYear.startDate);
+    const end = new Date(academicYear.endDate);
+    const midpoint = new Date((start.getTime() + end.getTime()) / 2);
+
+    if (normalized === 'this_semester') {
+      return now < midpoint ? { gte: start, lt: midpoint } : { gte: midpoint, lt: end };
+    }
+
+    if (normalized === 'last_semester') {
+      if (now >= midpoint) {
+        return { gte: start, lt: midpoint };
+      }
+
+      const previousAcademicYear = await prisma.academicYear.findFirst({
+        where: { startDate: { lt: academicYear.startDate }, isActive: true },
+        orderBy: { startDate: 'desc' },
+        select: { startDate: true, endDate: true },
+      });
+
+      if (!previousAcademicYear) {
+        return {};
+      }
+
+      const previousMidpoint = new Date(
+        (previousAcademicYear.startDate.getTime() + previousAcademicYear.endDate.getTime()) / 2
+      );
+      return { gte: previousMidpoint, lt: previousAcademicYear.endDate };
+    }
+
+    return {};
+  }
+
   listCoordinator = asyncHandler(async (req: Request, res: Response) => {
     const facultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : undefined;
     if (!facultyId) {
@@ -29,6 +93,21 @@ class ContributionController {
     const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
 
     const result = await contributionService.listCoordinatorContributions(facultyId, limit, offset);
+    res.json(
+      successResponse({ items: result.items, total: result.total }, req.requestId || 'unknown', {
+        message: 'Contributions retrieved',
+        pagination: { limit, offset, total: result.total },
+      })
+    );
+  });
+
+  listManager = asyncHandler(async (req: Request, res: Response) => {
+    const limitRaw = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+    const offsetRaw = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 100 ? limitRaw : 20;
+    const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
+
+    const result = await contributionService.listManagerContributions(limit, offset);
     res.json(
       successResponse({ items: result.items, total: result.total }, req.requestId || 'unknown', {
         message: 'Contributions retrieved',
@@ -557,15 +636,26 @@ class ContributionController {
     const academicYearId = req.query.academicYearId
       ? parseInt(req.query.academicYearId as string, 10)
       : await academicYearService.getActiveAcademicYearId();
+    const filterBy = String(req.query.filterBy || 'all').toLowerCase();
+    const allowedFilters = ['all', 'this_semester', 'last_semester', 'this_month', 'this_week'];
+    const dateRange = allowedFilters.includes(filterBy)
+      ? await this.resolveContributionPeriodRange(filterBy, academicYearId)
+      : {};
 
     const contributions = await prisma.contribution.groupBy({
       by: ['facultyId', 'academicYearId'],
       _count: { id: true },
-      where: { academicYearId },
+      where: {
+        academicYearId,
+        createdAt: dateRange.gte || dateRange.lt ? { gte: dateRange.gte, lt: dateRange.lt } : undefined,
+      },
     });
 
     const total = await prisma.contribution.count({
-      where: { academicYearId },
+      where: {
+        academicYearId,
+        createdAt: dateRange.gte || dateRange.lt ? { gte: dateRange.gte, lt: dateRange.lt } : undefined,
+      },
     });
 
     const enrichedData = await Promise.all(
@@ -593,7 +683,7 @@ class ContributionController {
 
     res.json(
       successResponse(
-        { items: enrichedData, total },
+        { items: enrichedData, total, filterBy },
         req.requestId || 'unknown',
         { message: 'Faculty year report retrieved' }
       )

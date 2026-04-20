@@ -1,7 +1,80 @@
 import { db } from '@/shared/database';
 import { Try } from '@/shared/utils/Try';
 
+type PeriodFilter = 'all' | 'this_week' | 'this_month' | 'this_semester' | 'last_semester';
+
 class AnalyticsService {
+  private async resolvePeriodRange(period: PeriodFilter, academicYearId?: number): Promise<{
+    gte?: Date;
+    lt?: Date;
+    academicYearId?: number;
+  }> {
+    if (period === 'all') {
+      return academicYearId ? { academicYearId } : {};
+    }
+
+    const now = new Date();
+
+    if (period === 'this_week') {
+      const start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - start.getDay());
+      const end = new Date(start);
+      end.setDate(end.getDate() + 7);
+      return { gte: start, lt: end, academicYearId };
+    }
+
+    if (period === 'this_month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      return { gte: start, lt: end, academicYearId };
+    }
+
+    let yearId = academicYearId;
+    let academicYear = yearId
+      ? await db.academicYear.findUnique({ where: { id: yearId } })
+      : await db.academicYear.findFirst({ where: { isCurrent: true, isActive: true } });
+
+    if (!academicYear) {
+      return academicYearId ? { academicYearId } : {};
+    }
+
+    yearId = academicYear.id;
+    const start = new Date(academicYear.startDate);
+    const end = new Date(academicYear.endDate);
+    const midpoint = new Date((start.getTime() + end.getTime()) / 2);
+
+    if (period === 'this_semester') {
+      if (now < midpoint) {
+        return { gte: start, lt: midpoint, academicYearId: yearId };
+      }
+      return { gte: midpoint, lt: end, academicYearId: yearId };
+    }
+
+    if (now >= midpoint) {
+      return { gte: start, lt: midpoint, academicYearId: yearId };
+    }
+
+    const previousAcademicYear = await db.academicYear.findFirst({
+      where: { startDate: { lt: academicYear.startDate }, isActive: true },
+      orderBy: { startDate: 'desc' },
+    });
+
+    if (!previousAcademicYear) {
+      return { academicYearId: yearId };
+    }
+
+    const previousMidpoint = new Date(
+      (previousAcademicYear.startDate.getTime() + previousAcademicYear.endDate.getTime()) / 2
+    );
+
+    return {
+      gte: previousMidpoint,
+      lt: previousAcademicYear.endDate,
+      academicYearId: previousAcademicYear.id,
+    };
+  }
+
   /**
    * Get most viewed pages
    */
@@ -26,42 +99,57 @@ class AnalyticsService {
   /**
    * Get most active users with contribution counts
    */
-  async getMostActiveUsers(limit: number = 10) {
+  async getMostActiveUsers(limit: number = 10, period: PeriodFilter = 'all', academicYearId?: number) {
     return Try.execute(async () => {
-      const result = await db.$queryRaw<
-        Array<{
-          userId: number;
-          firstName: string | null;
-          lastName: string | null;
-          email: string;
-          contributions: bigint;
-        }>
-      >`
-        SELECT 
-          u.id as userId,
-          u.first_name as firstName,
-          u.last_name as lastName,
-          u.email,
-          COUNT(c.id) as contributions
-        FROM users u
-        LEFT JOIN contributions c ON u.id = c.user_id
-        WHERE u.is_active = 1
-        GROUP BY u.id, u.first_name, u.last_name, u.email
-        HAVING contributions > 0
-        ORDER BY contributions DESC
-        LIMIT ${limit}
-      `;
+      const range = await this.resolvePeriodRange(period, academicYearId);
+      const grouped = await db.contribution.groupBy({
+        by: ['userId'],
+        _count: { id: true },
+        where: {
+          academicYearId: range.academicYearId,
+          createdAt: range.gte || range.lt ? { gte: range.gte, lt: range.lt } : undefined,
+        },
+        orderBy: {
+          _count: {
+            id: 'desc',
+          },
+        },
+        take: limit,
+      });
 
-      return result.map(row => ({
-        userId: row.userId,
-        username: row.firstName && row.lastName 
-          ? `${row.firstName} ${row.lastName}` 
-          : row.email.split('@')[0],
-        firstName: row.firstName,
-        lastName: row.lastName,
-        email: row.email,
-        contributions: Number(row.contributions),
-      }));
+      const users = await db.user.findMany({
+        where: {
+          id: { in: grouped.map((item) => item.userId) },
+          isActive: true,
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      });
+
+      return grouped
+        .map((item) => {
+          const user = users.find((candidate) => candidate.id === item.userId);
+          if (!user) {
+            return null;
+          }
+
+          return {
+            userId: user.id,
+            username:
+              user.firstName && user.lastName
+                ? `${user.firstName} ${user.lastName}`
+                : user.email.split('@')[0],
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            contributions: item._count.id,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
     }).orElseThrow('Error fetching most active users');
   }
 
@@ -112,61 +200,36 @@ class AnalyticsService {
   /**
    * Get faculty contribution distribution for current academic year
    */
-  async getFacultyContributionDistribution(academicYearId?: number) {
+  async getFacultyContributionDistribution(
+    academicYearId?: number,
+    period: PeriodFilter = 'all'
+  ) {
     return Try.execute(async () => {
-      let yearId = academicYearId;
-      
-      if (!yearId) {
-        // Get current academic year
-        const currentYear = await db.academicYear.findFirst({
-          where: { isCurrent: true },
-        });
-        yearId = currentYear?.id;
-      }
+      const range = await this.resolvePeriodRange(period, academicYearId);
+      const faculties = await db.faculty.findMany({
+        where: { isActive: true },
+        orderBy: { facultyName: 'asc' },
+        select: {
+          id: true,
+          facultyCode: true,
+          facultyName: true,
+        },
+      });
 
-      let result;
-      if (yearId) {
-        result = await db.$queryRaw<
-          Array<{
-            facultyCode: string;
-            facultyName: string;
-            contributions: bigint;
-          }>
-        >`
-          SELECT 
-            f.faculty_code as facultyCode,
-            f.faculty_name as facultyName,
-            COUNT(c.id) as contributions
-          FROM faculties f
-          LEFT JOIN contributions c ON f.id = c.faculty_id AND c.academic_year_id = ${yearId}
-          WHERE f.is_active = 1
-          GROUP BY f.id, f.faculty_code, f.faculty_name
-          ORDER BY f.faculty_name ASC
-        `;
-      } else {
-        result = await db.$queryRaw<
-          Array<{
-            facultyCode: string;
-            facultyName: string;
-            contributions: bigint;
-          }>
-        >`
-          SELECT 
-            f.faculty_code as facultyCode,
-            f.faculty_name as facultyName,
-            COUNT(c.id) as contributions
-          FROM faculties f
-          LEFT JOIN contributions c ON f.id = c.faculty_id
-          WHERE f.is_active = 1
-          GROUP BY f.id, f.faculty_code, f.faculty_name
-          ORDER BY f.faculty_name ASC
-        `;
-      }
+      const grouped = await db.contribution.groupBy({
+        by: ['facultyId'],
+        _count: { id: true },
+        where: {
+          academicYearId: range.academicYearId,
+          createdAt: range.gte || range.lt ? { gte: range.gte, lt: range.lt } : undefined,
+        },
+      });
 
-      return result.map(row => ({
-        facultyCode: row.facultyCode,
-        facultyName: row.facultyName,
-        contributions: Number(row.contributions),
+      return faculties.map((faculty) => ({
+        facultyCode: faculty.facultyCode,
+        facultyName: faculty.facultyName,
+        contributions:
+          grouped.find((item) => item.facultyId === faculty.id)?._count.id ?? 0,
       }));
     }).orElseThrow('Error fetching faculty contribution distribution');
   }

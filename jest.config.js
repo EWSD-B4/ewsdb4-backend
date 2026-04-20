@@ -14,7 +14,9 @@ module.exports = {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   moduleNameMapper: {
+    '^@/app$': '<rootDir>/src/app.ts',
     '^@/config$': '<rootDir>/src/config/index.ts',
+    '^@/models/(.*)$': '<rootDir>/src/models/$1',
     '^@/config/(.*)$': '<rootDir>/src/config/$1',
     '^@/constants/(.*)$': '<rootDir>/src/constants/$1',
     '^@/modules/(.*)$': '<rootDir>/src/modules/$1',
@@ -24,5 +26,9 @@ module.exports = {
     '^@/types/(.*)$': '<rootDir>/src/types/$1',
     '^@/routes$': '<rootDir>/src/routes/index.ts',
     '^@/routes/(.*)$': '<rootDir>/src/routes/$1',
+    '^mongoose$': '<rootDir>/src/test/mocks/mongoose.ts',
+    '^archiver$': '<rootDir>/src/test/mocks/archiver.ts',
+    '^string-similarity$': '<rootDir>/src/test/mocks/string-similarity.ts',
+    '^@/(.*)$': '<rootDir>/src/$1',
   },
 };

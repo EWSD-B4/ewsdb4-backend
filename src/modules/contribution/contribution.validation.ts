@@ -28,20 +28,16 @@ export const submitContributionSchema = Joi.object({
 });
 
 export const selectContributionSchema = Joi.object({
-  comment: Joi.string().min(10).max(1000).required().messages({
-    'string.empty': 'Comment is required when selecting a contribution',
+  comment: Joi.string().min(10).max(1000).optional().allow('', null).messages({
     'string.min': 'Comment must be at least 10 characters',
     'string.max': 'Comment must not exceed 1000 characters',
-    'any.required': 'Comment is required when selecting a contribution',
   }),
 });
 
 export const rejectContributionSchema = Joi.object({
-  comment: Joi.string().min(10).max(1000).required().messages({
-    'string.empty': 'Comment is required when rejecting a contribution',
+  comment: Joi.string().min(10).max(1000).optional().allow('', null).messages({
     'string.min': 'Comment must be at least 10 characters',
     'string.max': 'Comment must not exceed 1000 characters',
-    'any.required': 'Comment is required when rejecting a contribution',
   }),
 });
 

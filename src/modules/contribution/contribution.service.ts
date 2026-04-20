@@ -85,6 +85,57 @@ class ContributionService {
     return { items: simplifiedItems, total, limit, offset };
   }
 
+  async listManagerContributions(limit: number, offset: number) {
+    const where = { NOT: { status: 'flagged_plagiarism' } };
+    const [items, total] = await Promise.all([
+      prisma.contribution.findMany({
+        where,
+        skip: offset,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          faculty: {
+            select: {
+              id: true,
+              facultyName: true,
+              facultyCode: true,
+            },
+          },
+          academicYear: {
+            select: {
+              id: true,
+              yearName: true,
+              isCurrent: true,
+              isActive: true,
+            },
+          },
+        },
+      }),
+      prisma.contribution.count({ where }),
+    ]);
+
+    const simplifiedItems = items.map((c: any) => ({
+      id: c.id,
+      title: c.title,
+      status: c.status,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      student: c.user ? `${c.user.firstName} ${c.user.lastName}` : null,
+      faculty: c.faculty ? c.faculty.facultyName : null,
+      academicYear: c.academicYear ? c.academicYear.yearName : null,
+    }));
+
+    return { items: simplifiedItems, total, limit, offset };
+  }
+
   async getCoordinatorContribution(facultyId: number, id: string) {
     const contributionId = this.parseContributionId(id);
     const contribution = await prisma.contribution.findFirst({
@@ -138,6 +189,19 @@ class ContributionService {
 
       if (!academicYear) {
         throw new NotFoundError('Academic year not found');
+      }
+
+      const contributionCount = await prisma.contribution.count({
+        where: {
+          userId,
+          academicYearId,
+        },
+      });
+
+      if (contributionCount >= 3) {
+        throw new BadRequestError(
+          `You can only create up to 3 contributions in ${academicYear.yearName}.`
+        );
       }
 
       const now = new Date();
@@ -597,38 +661,59 @@ class ContributionService {
         );
       }
 
-      // Update status to selected
-      const updated = await prisma.contribution.update({
-        where: { id: contributionId },
-        data: {
-          status: 'selected',
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
+      const result = await prisma.$transaction(async (tx) => {
+        const updated = await tx.contribution.update({
+          where: { id: contributionId },
+          data: {
+            status: 'selected',
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            academicYear: {
+              select: {
+                id: true,
+                yearName: true,
+              },
+            },
+            faculty: {
+              select: {
+                id: true,
+                facultyName: true,
+                facultyCode: true,
+              },
             },
           },
-          academicYear: {
-            select: {
-              id: true,
-              yearName: true,
-            },
-          },
-          faculty: {
-            select: {
-              id: true,
-              facultyName: true,
-              facultyCode: true,
-            },
-          },
-        },
-      });
+        });
 
-      const result = { contribution: updated };
+        const latestComment = await tx.comment.findFirst({
+          where: {
+            contributionId,
+            userId: coordinatorId,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        const commentRecord =
+          latestComment && latestComment.content.trim() === comment.trim()
+            ? latestComment
+            : await tx.comment.create({
+                data: {
+                  contributionId,
+                  userId: coordinatorId,
+                  content: comment,
+                  commentedAt: new Date(),
+                },
+              });
+
+        return { contribution: updated, comment: commentRecord };
+      });
 
       logger.info(`Contribution ${contributionId} selected by coordinator ${coordinatorId}`);
 
@@ -696,38 +781,59 @@ class ContributionService {
         );
       }
 
-      // Update status to rejected
-      const updated = await prisma.contribution.update({
-        where: { id: contributionId },
-        data: {
-          status: 'rejected',
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
+      const result = await prisma.$transaction(async (tx) => {
+        const updated = await tx.contribution.update({
+          where: { id: contributionId },
+          data: {
+            status: 'rejected',
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            academicYear: {
+              select: {
+                id: true,
+                yearName: true,
+              },
+            },
+            faculty: {
+              select: {
+                id: true,
+                facultyName: true,
+                facultyCode: true,
+              },
             },
           },
-          academicYear: {
-            select: {
-              id: true,
-              yearName: true,
-            },
-          },
-          faculty: {
-            select: {
-              id: true,
-              facultyName: true,
-              facultyCode: true,
-            },
-          },
-        },
-      });
+        });
 
-      const result = { contribution: updated };
+        const latestComment = await tx.comment.findFirst({
+          where: {
+            contributionId,
+            userId: coordinatorId,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        const commentRecord =
+          latestComment && latestComment.content.trim() === comment.trim()
+            ? latestComment
+            : await tx.comment.create({
+                data: {
+                  contributionId,
+                  userId: coordinatorId,
+                  content: comment,
+                  commentedAt: new Date(),
+                },
+              });
+
+        return { contribution: updated, comment: commentRecord };
+      });
 
       logger.info(`Contribution ${contributionId} rejected by coordinator ${coordinatorId}`);
 
@@ -778,6 +884,15 @@ class ContributionService {
 
       if (!contribution) {
         throw new NotFoundError('Contribution not found or you do not have permission to update it');
+      }
+
+      // Check final closure date - no updates allowed after this date
+      const now = new Date();
+      if (contribution.academicYear.closureFinalDate && now > contribution.academicYear.closureFinalDate) {
+        throw new BadRequestError(
+          `Updates are no longer allowed for ${contribution.academicYear.yearName}. ` +
+          `Final closure date was ${contribution.academicYear.closureFinalDate.toISOString().split('T')[0]}.`
+        );
       }
 
       // Require at least one coordinator comment before resubmission

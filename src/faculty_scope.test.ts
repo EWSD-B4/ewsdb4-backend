@@ -1,6 +1,7 @@
 import request from 'supertest';
 
 const prismaMock = {
+  $executeRaw: jest.fn(),
   faculty: {
     findMany: jest.fn(),
     count: jest.fn(),
@@ -19,6 +20,12 @@ const prismaMock = {
     findMany: jest.fn(),
     count: jest.fn(),
     findFirst: jest.fn(),
+  },
+  academicYear: {
+    findFirst: jest.fn(),
+  },
+  role: {
+    findMany: jest.fn(),
   },
 };
 
@@ -77,7 +84,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
     });
 
     (prisma.faculty.findMany as jest.Mock).mockResolvedValue([
-      { id: 1, facultyCode: 'ENG', facultyName: 'Engineering', isActive: true },
+      { id: 1, facultyCode: 'ENG', facultyName: 'Engineering', description: 'Engineering', isActive: true },
     ]);
     (prisma.faculty.count as jest.Mock).mockResolvedValue(1);
     (prisma.faculty.findFirst as jest.Mock).mockResolvedValue(null);
@@ -85,18 +92,20 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
       id: 2,
       facultyCode: data.facultyCode,
       facultyName: data.facultyName,
+      description: data.description,
       isActive: true,
     }));
     (prisma.faculty.findUnique as jest.Mock).mockImplementation(async ({ where }) => {
       const id = where?.id;
       if (id === 999) return null;
-      if (id === 3) return { id: 3, facultyCode: 'LAW', facultyName: 'Law', isActive: false };
-      return { id, facultyCode: 'ENG', facultyName: 'Engineering', isActive: true };
+      if (id === 3) return { id: 3, facultyCode: 'LAW', facultyName: 'Law', description: 'Law', isActive: false };
+      return { id, facultyCode: 'ENG', facultyName: 'Engineering', description: 'Engineering', isActive: true };
     });
     (prisma.faculty.update as jest.Mock).mockImplementation(async ({ where, data }) => ({
       id: where.id,
       facultyCode: data.facultyCode ?? 'ENG',
       facultyName: data.facultyName ?? 'Engineering',
+      description: data.description ?? 'Engineering',
       isActive: data.isActive ?? true,
     }));
 
@@ -158,6 +167,14 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
         status: where?.status ?? 'selected',
       };
     });
+    (prisma.academicYear.findFirst as jest.Mock).mockResolvedValue({
+      id: 2024,
+      isCurrent: true,
+      isActive: true,
+      yearName: '2024-2025',
+    });
+    (prisma.role.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.$executeRaw as jest.Mock).mockResolvedValue(undefined);
   });
 
   describe('Admin faculty endpoints', () => {
@@ -180,7 +197,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
       const res = await request(app)
         .post('/api/v1/admin/faculties')
         .set(authHeader('token-admin'))
-        .send({ code: 'ART', name: 'Arts' });
+        .send({ code: 'ART', name: 'Arts', description: 'Arts faculty' });
 
       expect(res.status).toBe(201);
       expect(res.body.data).toMatchObject({ facultyCode: 'ART', facultyName: 'Arts' });
@@ -192,7 +209,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
       const res = await request(app)
         .post('/api/v1/admin/faculties')
         .set(authHeader('token-admin'))
-        .send({ code: 'ENG', name: 'Engineering' });
+        .send({ code: 'ENG', name: 'Engineering', description: 'Engineering faculty' });
 
       expect(res.status).toBe(409);
       expect(res.body.success).toBe(false);
@@ -395,7 +412,7 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
 
       expect(res.status).toBe(200);
       expect(prisma.contribution.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { facultyId: 1 } })
+        expect.objectContaining({ where: expect.objectContaining({ facultyId: 1 }) })
       );
     });
 
@@ -458,13 +475,13 @@ describe('Faculty Scope API (roles + faculty endpoints)', () => {
       expect(res.body.data).toHaveProperty('overdue');
     });
 
-    it('returns 400 when reports academicYearId is missing', async () => {
+    it('defaults reports academicYearId to current academic year when missing', async () => {
       const res = await request(app)
         .get('/api/v1/reports/faculty/1/statistics')
         .set(authHeader('token-manager'));
 
-      expect(res.status).toBe(400);
-      expect(res.body.success).toBe(false);
+      expect(res.status).toBe(200);
+      expect(prisma.academicYear.findFirst).toHaveBeenCalled();
     });
 
     it('returns 400 when manager provides invalid faculty id for reports', async () => {
