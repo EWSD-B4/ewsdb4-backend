@@ -5,6 +5,7 @@ import { successResponse } from '@/utils/response';
 import { AppError } from '@/middleware/errorHandler';
 import { db as prisma } from '@/shared/database';
 import s3Service from '@/shared/storage/s3.service';
+import academicYearService from '@/modules/academic-year/academic-year.service';
 
 class DocumentContentController {
   private async fetchContributionContent(contributionId: number) {
@@ -123,6 +124,20 @@ class DocumentContentController {
     if (!Number.isFinite(contributionId)) {
       throw new AppError('Invalid contribution ID', 400, 'VALIDATION_ERROR');
     }
+    
+    // For manager role, filter by active academic year
+    const userRole = req.user?.role as string;
+    if (userRole === 'MANAGER') {
+      const activeAcademicYearId = await academicYearService.getActiveAcademicYearId();
+      const contribution = await prisma.contribution.findUnique({
+        where: { id: contributionId },
+        select: { academicYearId: true },
+      });
+      if (!contribution || contribution.academicYearId !== activeAcademicYearId) {
+        throw new AppError('Contribution not found or not from active academic year', 404, 'NOT_FOUND');
+      }
+    }
+    
     const contribution = await this.fetchContributionContent(contributionId);
     if (!contribution) {
       throw new AppError('Contribution not found', 404, 'NOT_FOUND');

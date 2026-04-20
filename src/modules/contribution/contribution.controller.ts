@@ -517,7 +517,8 @@ class ContributionController {
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 100 ? limitRaw : 20;
     const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
 
-    const where = { status: 'selected' };
+    const academicYearId = await academicYearService.getActiveAcademicYearId();
+    const where = { status: 'selected', academicYearId };
     const [items, total] = await Promise.all([
       prisma.contribution.findMany({
         where,
@@ -554,8 +555,9 @@ class ContributionController {
 
   getSelectedContribution = asyncHandler(async (req: Request, res: Response) => {
     const contributionId = parseInt(String(req.params.id), 10);
+    const academicYearId = await academicYearService.getActiveAcademicYearId();
     const contribution = await prisma.contribution.findFirst({
-      where: { id: contributionId, status: 'selected' },
+      where: { id: contributionId, status: 'selected', academicYearId },
       include: {
         user: { select: { id: true, firstName: true, lastName: true, email: true } },
         faculty: { select: { id: true, facultyName: true, facultyCode: true } },

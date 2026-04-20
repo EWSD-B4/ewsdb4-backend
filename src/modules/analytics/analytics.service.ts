@@ -239,9 +239,16 @@ class AnalyticsService {
    */
   async getSystemStats() {
     return Try.execute(async () => {
+      // Get active academic year
+      const activeAcademicYear = await db.academicYear.findFirst({
+        where: { isActive: true, isCurrent: true },
+      });
+
+      const academicYearId = activeAcademicYear?.id;
+
       const [totalUsers, totalContributions, totalActivitiesResult, activeUsers] = await Promise.all([
         db.user.count({ where: { isActive: true } }),
-        db.contribution.count(),
+        db.contribution.count({ where: academicYearId ? { academicYearId } : {} }),
         db.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*) as count FROM user_activities`,
         db.user.count({
           where: {
