@@ -238,6 +238,13 @@ class ReportFullService {
 
   async getSystemUsageReport(): Promise<SystemUsageReport> {
     return Try.execute(async () => {
+      // Get active academic year
+      const activeAcademicYear = await db.academicYear.findFirst({
+        where: { isActive: true, isCurrent: true },
+      });
+
+      const academicYearId = activeAcademicYear?.id;
+
       const [
         totalUsers,
         totalContributions,
@@ -248,14 +255,15 @@ class ReportFullService {
         contributionsByStatus,
       ] = await Promise.all([
         db.user.count({ where: { isActive: true } }),
-        db.contribution.count(),
+        db.contribution.count({ where: academicYearId ? { academicYearId } : {} }),
         db.comment.count(),
-        db.contribution.count({ where: { status: 'selected' } }),
+        db.contribution.count({ where: { status: 'selected', ...(academicYearId ? { academicYearId } : {}) } }),
         db.academicYear.count({ where: { isActive: true } }),
         db.faculty.count({ where: { isActive: true } }),
         db.contribution.groupBy({
           by: ['status'],
           _count: { id: true },
+          where: academicYearId ? { academicYearId } : {},
         }),
       ]);
 
