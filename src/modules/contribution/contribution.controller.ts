@@ -232,13 +232,13 @@ class ContributionController {
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 100 ? limitRaw : 20;
     const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
 
-    const facultyId = parseInt(String(req.params.facultyId), 10);
-    if (!Number.isFinite(facultyId)) {
-      res.status(400).json({
+    const facultyId = req.user?.facultyId ? parseInt(String(req.user.facultyId), 10) : undefined;
+    if (!facultyId) {
+      res.status(403).json({
         success: false,
-        message: 'Invalid facultyId',
+        message: 'Faculty assignment required',
         ...(process.env.NODE_ENV === 'development'
-          ? { stack: new Error('Invalid facultyId').stack }
+          ? { stack: new Error('Faculty assignment required').stack }
           : {}),
       });
       return;

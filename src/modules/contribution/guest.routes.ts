@@ -9,7 +9,9 @@ const router = Router();
 
 router.get('/faculties', contributionController.listGuestFaculties);
 router.get(
-  '/faculties/:facultyId/contributions/selected',
+  '/contributions/selected',
+  authenticate,
+  authorize(ROLES.GUEST),
   contributionController.listGuestSelected
 );
 router.get('/contributions/:id', contributionController.getGuestSelected);
