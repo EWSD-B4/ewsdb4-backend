@@ -151,8 +151,9 @@ class ContributionService {
     return contribution;
   }
 
-  async listGuestSelected(facultyId: number, limit: number, offset: number) {
-    const where = { facultyId, status: 'selected' };
+  async listGuestSelected(facultyId: number, limit: number, offset: number, academicYearId?: number) {
+    const where: any = { facultyId, status: 'selected' };
+    if (academicYearId) where.academicYearId = academicYearId;
     const [items, total] = await Promise.all([
       prisma.contribution.findMany({
         where,
