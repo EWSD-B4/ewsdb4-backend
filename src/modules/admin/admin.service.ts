@@ -172,9 +172,10 @@ class AdminService {
     );
 
     // Send confirmation email to user with new password
+    const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
     await Try.execute(() =>
       emailService.sendPasswordResetConfirmationEmail(user.email, {
-        userName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+        userName,
         newPassword,
       })
     ).orElseLogWarning(`Failed to send password reset confirmation email to ${user.email}`);
@@ -182,8 +183,6 @@ class AdminService {
     return {
       id: user.id,
       email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
       message: 'Password reset successfully and confirmation email sent to user',
     };
   }
