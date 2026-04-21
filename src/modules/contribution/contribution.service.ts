@@ -152,8 +152,19 @@ class ContributionService {
   }
 
   async listGuestSelected(facultyId: number, limit: number, offset: number, academicYearId?: number) {
+    // If academicYearId is not provided, fetch the current academic year
+    let resolvedAcademicYearId = academicYearId;
+    if (!resolvedAcademicYearId) {
+      const currentAcademicYear = await prisma.academicYear.findFirst({
+        where: { isCurrent: true },
+        select: { id: true },
+      });
+      resolvedAcademicYearId = currentAcademicYear?.id;
+    }
+
     const where: any = { facultyId, status: 'selected' };
-    if (academicYearId) where.academicYearId = academicYearId;
+    if (resolvedAcademicYearId) where.academicYearId = resolvedAcademicYearId;
+    
     const [items, total] = await Promise.all([
       prisma.contribution.findMany({
         where,
