@@ -92,7 +92,8 @@ class ContributionController {
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 100 ? limitRaw : 20;
     const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
 
-    const result = await contributionService.listCoordinatorContributions(facultyId, limit, offset);
+    const academicYearId = await academicYearService.getActiveAcademicYearId();
+    const result = await contributionService.listCoordinatorContributions(facultyId, limit, offset, academicYearId);
     res.json(
       successResponse({ items: result.items, total: result.total }, req.requestId || 'unknown', {
         message: 'Contributions retrieved',
@@ -107,7 +108,8 @@ class ContributionController {
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 100 ? limitRaw : 20;
     const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
 
-    const result = await contributionService.listManagerContributions(limit, offset);
+    const academicYearId = await academicYearService.getActiveAcademicYearId();
+    const result = await contributionService.listManagerContributions(limit, offset, academicYearId);
     res.json(
       successResponse({ items: result.items, total: result.total }, req.requestId || 'unknown', {
         message: 'Contributions retrieved',
@@ -130,9 +132,11 @@ class ContributionController {
     }
 
     const contributionId = String(req.params.id);
+    const academicYearId = await academicYearService.getActiveAcademicYearId();
     const contribution = await contributionService.getCoordinatorContribution(
       facultyId,
-      contributionId
+      contributionId,
+      academicYearId
     );
     res.json(
       successResponse(contribution, req.requestId || 'unknown', {
@@ -244,7 +248,10 @@ class ContributionController {
       return;
     }
 
-    const result = await contributionService.listGuestSelected(facultyId, limit, offset);
+    const academicYearId = req.query.academicYearId
+      ? parseInt(req.query.academicYearId as string, 10)
+      : undefined;
+    const result = await contributionService.listGuestSelected(facultyId, limit, offset, academicYearId);
     res.json(
       successResponse({ items: result.items, total: result.total }, req.requestId || 'unknown', {
         message: 'Selected contributions retrieved',
@@ -274,7 +281,8 @@ class ContributionController {
     const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
 
     const userId = Number(req.user.id);
-    const contributions = await contributionService.getContributionsByStudentId(userId, limit, offset);
+    const academicYearId = await academicYearService.getActiveAcademicYearId();
+    const contributions = await contributionService.getContributionsByStudentId(userId, limit, offset, academicYearId);
     res.json(
         successResponse(contributions, req.requestId || 'unknown', {
           message: 'Contribution retrieved',

@@ -34,8 +34,9 @@ class ContributionService {
     return idNum;
   }
 
-  async listCoordinatorContributions(facultyId: number, limit: number, offset: number) {
-    const where = { facultyId, NOT: { status: 'flagged_plagiarism' } };
+  async listCoordinatorContributions(facultyId: number, limit: number, offset: number, academicYearId?: number) {
+    const where: any = { facultyId, NOT: { status: 'flagged_plagiarism' } };
+    if (academicYearId) where.academicYearId = academicYearId;
     const [items, total] = await Promise.all([
       prisma.contribution.findMany({
         where,
@@ -85,8 +86,9 @@ class ContributionService {
     return { items: simplifiedItems, total, limit, offset };
   }
 
-  async listManagerContributions(limit: number, offset: number) {
-    const where = { NOT: { status: 'flagged_plagiarism' } };
+  async listManagerContributions(limit: number, offset: number, academicYearId?: number) {
+    const where: any = { NOT: { status: 'flagged_plagiarism' } };
+    if (academicYearId) where.academicYearId = academicYearId;
     const [items, total] = await Promise.all([
       prisma.contribution.findMany({
         where,
@@ -136,10 +138,12 @@ class ContributionService {
     return { items: simplifiedItems, total, limit, offset };
   }
 
-  async getCoordinatorContribution(facultyId: number, id: string) {
+  async getCoordinatorContribution(facultyId: number, id: string, academicYearId?: number) {
     const contributionId = this.parseContributionId(id);
+    const where: any = { id: contributionId, facultyId };
+    if (academicYearId) where.academicYearId = academicYearId;
     const contribution = await prisma.contribution.findFirst({
-      where: { id: contributionId, facultyId },
+      where,
     });
     if (!contribution) {
       throw new NotFoundError('Contribution not found');
@@ -147,8 +151,9 @@ class ContributionService {
     return contribution;
   }
 
-  async listGuestSelected(facultyId: number, limit: number, offset: number) {
-    const where = { facultyId, status: 'selected' };
+  async listGuestSelected(facultyId: number, limit: number, offset: number, academicYearId?: number) {
+    const where: any = { facultyId, status: 'selected' };
+    if (academicYearId) where.academicYearId = academicYearId;
     const [items, total] = await Promise.all([
       prisma.contribution.findMany({
         where,
@@ -451,8 +456,9 @@ class ContributionService {
     );
   }
 
-  async getContributionsByStudentId(studentId: number, limit: number, offset: number) {
-    const where = { userId: studentId };
+  async getContributionsByStudentId(studentId: number, limit: number, offset: number, academicYearId?: number) {
+    const where: any = { userId: studentId };
+    if (academicYearId) where.academicYearId = academicYearId;
     const [items, total] = await Promise.all([
       prisma.contribution.findMany({
         where,
