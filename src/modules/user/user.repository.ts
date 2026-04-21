@@ -169,15 +169,22 @@ class UserRepository {
     const [firstName, ...lastNameParts] = (userData.name || '').split(' ');
     const lastName = lastNameParts.join(' ');
 
+    // Prepare data object with conditional facultyId
+    const createData: any = {
+      email: userData.email,
+      firstName: firstName || null,
+      lastName: lastName || null,
+      passwordHash: userData.password,
+      roleId: userData.role_id,
+    };
+
+    // Only set facultyId if it's provided and valid
+    if (userData.faculty_id) {
+      createData.facultyId = userData.faculty_id;
+    }
+
     const user = await db.user.create({
-      data: {
-        email: userData.email,
-        firstName: firstName || null,
-        lastName: lastName || null,
-        passwordHash: userData.password,
-        roleId: userData.role_id,
-        facultyId: userData.faculty_id,
-      },
+      data: createData,
       select: {
         id: true,
         email: true,

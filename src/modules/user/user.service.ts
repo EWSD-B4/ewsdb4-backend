@@ -7,7 +7,7 @@ import { Try } from '@/shared/utils/Try';
 import { db } from '@/shared/database';
 import { emailService } from '@/shared/email';
 import notificationService from '@/modules/notification/notification.service';
-import { ROLES } from '@/constants/roles';
+import { ROLES, Roles } from '@/constants/roles';
 
 class UserService {
   private cachePrefix = 'user:';
@@ -51,12 +51,40 @@ class UserService {
     const role = await Try.execute(() =>
       db.role.findUnique({
         where: { id: userData.role_id },
-        select: { roleCode: true },
+        select: { roleCode: true, requiresFaculty: true },
       })
     ).orElseThrow('Failed to resolve user role');
 
     if (!role) {
       throw new AppError('Role not found', 404);
+    }
+
+    // Check if role requires faculty assignment
+    const rolesRequiringFaculty: (typeof ROLES)[keyof typeof ROLES][] = [ROLES.STUDENT, ROLES.COORDINATOR, ROLES.GUEST];
+    if (rolesRequiringFaculty.includes(role.roleCode as Roles) && !userData.faculty_id) {
+      throw new AppError(
+        `${role.roleCode} role requires a faculty assignment`,
+        400,
+        'FACULTY_REQUIRED'
+      );
+    }
+
+    // Validate faculty exists if provided
+    if (userData.faculty_id) {
+      const faculty = await Try.execute(() =>
+        db.faculty.findUnique({
+          where: { id: userData.faculty_id },
+          select: { id: true, isActive: true },
+        })
+      ).orElseThrow('Failed to validate faculty');
+
+      if (!faculty) {
+        throw new AppError('Faculty not found', 404);
+      }
+
+      if (!faculty.isActive) {
+        throw new AppError('Faculty is not active', 400);
+      }
     }
 
     if (role.roleCode === ROLES.GUEST && userData.faculty_id) {
