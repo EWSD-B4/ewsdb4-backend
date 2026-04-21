@@ -2,6 +2,10 @@ import { db as prisma } from '@/shared/database';
 import { BadRequestError, ConflictError, NotFoundError } from '@/shared/errors/AppError';
 import { Prisma } from '@prisma/client';
 import { ROLES } from '@/constants/roles';
+import { hashPassword, generatePassword } from '@/utils/password';
+import userRepository from '@/modules/user/user.repository';
+import { Try } from '@/shared/utils/Try';
+import { emailService } from '@/shared/email';
 
 const rolesRequiringFaculty = new Set<string>([ROLES.STUDENT, ROLES.COORDINATOR, ROLES.GUEST]);
 
@@ -141,6 +145,47 @@ class AdminService {
     ]);
 
     return { items, total, limit, offset };
+  }
+
+  async resetUserPassword(userId: string) {
+    const userIdNum = parseInt(userId, 10);
+    if (!Number.isFinite(userIdNum)) {
+      throw new BadRequestError('Invalid user id');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userIdNum },
+      select: { id: true, email: true, firstName: true, lastName: true },
+    });
+
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    // Generate a new temporary password
+    const newPassword = generatePassword();
+    const hashedPassword = await hashPassword(newPassword);
+
+    // Update the password
+    await Try.execute(() => userRepository.updatePassword(String(userIdNum), hashedPassword)).orElseThrow(
+      'Failed to reset password'
+    );
+
+    // Send confirmation email to user with new password
+    await Try.execute(() =>
+      emailService.sendPasswordResetConfirmationEmail(user.email, {
+        userName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+        newPassword,
+      })
+    ).orElseLogWarning(`Failed to send password reset confirmation email to ${user.email}`);
+
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      message: 'Password reset successfully and confirmation email sent to user',
+    };
   }
 }
 

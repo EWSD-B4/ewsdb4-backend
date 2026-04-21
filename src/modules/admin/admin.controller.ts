@@ -72,6 +72,16 @@ class AdminController {
       )
     );
   });
+
+  resetUserPassword = asyncHandler(async (req: Request, res: Response) => {
+    const userId = String(req.params.id);
+    const result = await adminService.resetUserPassword(userId);
+    res.json(
+      successResponse(result, req.requestId || 'unknown', {
+        message: 'User password reset successfully',
+      })
+    );
+  });
 }
 
 export default new AdminController();

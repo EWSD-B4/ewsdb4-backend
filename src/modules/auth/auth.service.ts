@@ -172,18 +172,35 @@ class AuthService {
       return;
     }
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = Date.now() + 3600000;
+    // Store password reset request in cache
+    const resetRequestId = crypto.randomBytes(16).toString('hex');
+    const resetRequestExpiry = Date.now() + 3600000; // 1 hour
 
     await cache.set(
-      `password:reset:${resetToken}`,
-      JSON.stringify({ userId: user.id, expiry: resetTokenExpiry }),
+      `password:reset:request:${resetRequestId}`,
+      JSON.stringify({ userId: user.id, userEmail: user.email, expiry: resetRequestExpiry }),
       3600
     );
 
-    await Try.execute(() => emailService.sendPasswordResetEmail(user.email, resetToken)).orElseLogWarning(
-      `Failed to send password reset email to ${user.email}`
-    );
+    // Get admin email from config or find admin user
+    const adminUser = await Try.execute(async () => {
+      const { db } = await import('@/shared/database');
+      return db.user.findFirst({
+        where: { role: { roleCode: 'ADMIN' } },
+        select: { email: true },
+      });
+    }).orElseLogWarning('Failed to find admin user');
+
+    const adminEmail = adminUser?.email || process.env.ADMIN_EMAIL || 'admin@ewsd.local';
+
+    // Send notification to admin
+    await Try.execute(() => 
+      emailService.sendPasswordResetRequestNotificationEmail(adminEmail, {
+        userName: user.name || user.email,
+        userEmail: user.email,
+        resetRequestId,
+      })
+    ).orElseLogWarning(`Failed to send password reset notification to admin`);
   }
 
   async verifyResetToken(token: string): Promise<{ valid: boolean; email?: string }> {

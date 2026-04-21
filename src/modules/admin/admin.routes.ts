@@ -35,4 +35,10 @@ router.get(
   authorize(ROLES.ADMIN, ROLES.COORDINATOR),
   adminController.listGuests
 );
+router.post(
+  '/users/:id/password/reset',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  adminController.resetUserPassword
+);
 export default router;

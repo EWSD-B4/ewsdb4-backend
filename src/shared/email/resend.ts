@@ -114,6 +114,37 @@ class EmailService {
     });
   }
 
+  async sendPasswordResetRequestNotificationEmail(
+    to: string,
+    payload: {
+      userName: string;
+      userEmail: string;
+      resetRequestId: string;
+    }
+  ): Promise<void> {
+    await this.sendEmail({
+      to,
+      subject: 'Password Reset Request - Action Required',
+      html: this.buildPasswordResetRequestNotificationTemplate(payload),
+      logContext: 'password reset request notification',
+    });
+  }
+
+  async sendPasswordResetConfirmationEmail(
+    to: string,
+    payload: {
+      userName: string;
+      newPassword: string;
+    }
+  ): Promise<void> {
+    await this.sendEmail({
+      to,
+      subject: 'Your Password Has Been Reset',
+      html: this.buildPasswordResetConfirmationTemplate(payload),
+      logContext: 'password reset confirmation',
+    });
+  }
+
   private async sendEmail(options: {
     to: string;
     subject: string;
@@ -847,6 +878,78 @@ class EmailService {
 
             <p style="font-size: 12px; color: #7f8c8d;">
               This is an automated message, please do not reply to this email. Contact your faculty coordinator for assistance.
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  private buildPasswordResetRequestNotificationTemplate(data: {
+    userName: string;
+    userEmail: string;
+    resetRequestId: string;
+  }): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Password Reset Request</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
+            <h2 style="color: #2c3e50; margin-top: 0;">🔐 Password Reset Request</h2>
+            
+            <p>A password reset request has been submitted by:</p>
+            <div style="background-color: #ecf0f1; padding: 15px; border-radius: 5px; margin: 15px 0;">
+              <p style="margin: 5px 0;"><strong>Name:</strong> ${data.userName}</p>
+              <p style="margin: 5px 0;"><strong>Email:</strong> ${data.userEmail}</p>
+              <p style="margin: 5px 0;"><strong>Request ID:</strong> ${data.resetRequestId}</p>
+            </div>
+
+            <p>Please reset this user's password and send them the new password via email.</p>
+            
+            <p style="color: #7f8c8d; font-size: 12px; margin-top: 20px;">
+              This is an automated message, please do not reply to this email.
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  private buildPasswordResetConfirmationTemplate(data: {
+    userName: string;
+    newPassword: string;
+  }): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Password Reset Confirmation</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
+            <h2 style="color: #27ae60; margin-top: 0;">✅ Your Password Has Been Reset</h2>
+            
+            <p>Hello ${data.userName},</p>
+            
+            <p>Your password has been successfully reset by an administrator. Your new temporary password is:</p>
+            
+            <div style="background-color: #ecf0f1; padding: 15px; border-radius: 5px; margin: 15px 0; text-align: center;">
+              <p style="margin: 0; font-size: 18px; font-weight: bold; font-family: 'Courier New', monospace; letter-spacing: 2px;">
+                ${data.newPassword}
+              </p>
+            </div>
+
+            <p><strong>Important:</strong> Please change this password to something more secure when you log in.</p>
+            
+            <p style="color: #7f8c8d; font-size: 12px; margin-top: 20px;">
+              This is an automated message, please do not reply to this email. If you did not request a password reset, please contact your administrator immediately.
             </p>
           </div>
         </body>
