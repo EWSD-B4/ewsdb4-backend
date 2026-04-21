@@ -156,7 +156,7 @@ class ContributionService {
     let resolvedAcademicYearId = academicYearId;
     if (!resolvedAcademicYearId) {
       const currentAcademicYear = await prisma.academicYear.findFirst({
-        where: { isCurrent: true },
+        where: { isCurrent: true, isActive: true },
         select: { id: true },
       });
       resolvedAcademicYearId = currentAcademicYear?.id;
