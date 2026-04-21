@@ -10,8 +10,8 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   draft:              ['submitted'],
   submitted:          ['under_review'],
   under_review:       ['selected', 'rejected', 'flagged_plagiarism'],
-  selected:           ['published'],
-  rejected:           ['submitted'],
+  selected:           ['rejected'],
+  rejected:           ['selected'],
   flagged_plagiarism: ['submitted'],
   published:          [],
 };
@@ -1054,13 +1054,16 @@ class ContributionService {
         await prisma.$transaction(pathUpdates);
       }
 
-      // Reset contribution status to submitted so it re-enters the review pipeline (only if DOCX is updated)
+      // Reset contribution status to submitted so it re-enters the review pipeline (if DOCX or images are updated)
       const updateData: any = { updatedAt: new Date() };
-      if (docxFile) {
+      const hasFileUpdates = docxFile || imageFiles.length > 0;
+      
+      if (hasFileUpdates) {
         // Calculate new comment due date (14 days from now)
         const commentDueDate = new Date();
         commentDueDate.setDate(commentDueDate.getDate() + 14);
         updateData.status = 'submitted';
+        updateData.submittedAt = new Date();
         updateData.commentDueDate = commentDueDate;
       }
       if (title !== undefined && title.trim() !== '') {
@@ -1087,8 +1090,10 @@ class ContributionService {
           fileSize: docxFile.size,
           uploadedAt: new Date().toISOString(),
         });
+      }
 
-        // Notify coordinators of resubmission (only if DOCX is updated)
+      // Notify coordinators of resubmission (if any files are updated)
+      if (hasFileUpdates) {
         await this.notifyFacultyCoordinatorsOnResubmission(updatedContribution.id);
       }
 
@@ -1168,13 +1173,26 @@ class ContributionService {
         throw new BadRequestError('You can only update contributions with draft or rejected status');
       }
 
+      // Prepare update data
+      const dataToUpdate: any = {
+        ...updateData,
+        updatedAt: new Date(),
+      };
+
+      // If contribution is in rejected status and title is being updated, change status to submitted
+      if (contribution.status === 'rejected' && updateData.title !== undefined) {
+        dataToUpdate.status = 'submitted';
+        dataToUpdate.submittedAt = new Date();
+        // Calculate new comment due date (14 days from now)
+        const commentDueDate = new Date();
+        commentDueDate.setDate(commentDueDate.getDate() + 14);
+        dataToUpdate.commentDueDate = commentDueDate;
+      }
+
       // Update contribution
       const updated = await prisma.contribution.update({
         where: { id: contributionId },
-        data: {
-          ...updateData,
-          updatedAt: new Date(),
-        },
+        data: dataToUpdate,
         include: {
           user: {
             select: {
@@ -1201,6 +1219,11 @@ class ContributionService {
       });
 
       logger.info(`Contribution ${contributionId} updated by user ${userId}`);
+
+      // Notify coordinators if status changed to submitted
+      if (dataToUpdate.status === 'submitted' && contribution.status === 'rejected') {
+        await this.notifyFacultyCoordinatorsOnResubmission(updated.id);
+      }
 
       return updated;
     }).orElseThrow('Error updating contribution');
